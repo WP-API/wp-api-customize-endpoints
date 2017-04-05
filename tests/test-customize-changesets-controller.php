@@ -110,8 +110,6 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	}
 
 	/**
-
-	/**
 	 * Test that changesets cannot be created with update_item() when the user lacks capabilities.
 	 */
 	public function test_update_item_cannot_create_changeset_post() {
