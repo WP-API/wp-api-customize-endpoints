@@ -345,6 +345,8 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 			$this->markTestSkipped( 'Changesets are not trashed when revisions are enabled.' );
 		}
 	}
+
+	/**
 	 * Test delete_item.
 	 *
 	 * @covers WP_REST_Customize_Changesets_Controller::delete_item()
