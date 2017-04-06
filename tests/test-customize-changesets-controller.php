@@ -313,6 +313,33 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	}
 
 	/**
+	 * Test that a update_item() can change a 'future' changeset to 'draft', keeping the date.
+	 */
+	public function test_update_item_future_to_draft_keeps_post_date() {
+		wp_set_current_user( self::$admin_id );
+
+		$future_date = date( 'Y-m-d H:i:s', strtotime( '+1 year' ) );
+
+		$manager = new WP_Customize_Manager;
+		$manager->save_changeset_post( array(
+			'date' => $future_date,
+			'status' => 'future',
+		) );
+
+		$status_after = 'draft';
+
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$request->set_body_params( array(
+			'status' => $status_after,
+		) );
+		$response = $this->server->dispatch( $request );
+
+		$this->assertSame( 200, $response->get_status() );
+		$this->assertSame( $status_after, get_post_status( $manager->changeset_post_id() ) );
+		$this->assertSame( $future_date, get_post( $manager->changeset_post_id() )->post_date );
+	}
+
+	/**
 	 * Test that update_item() rejects invalid changeset dates.
 	 *
 	 * TODO: Another test when the UUID is not saved to verify no post is created.
@@ -342,6 +369,95 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		if ( post_type_supports( 'customize_changeset', 'revisions' ) ) {
 			$this->markTestSkipped( 'Changesets are not trashed when revisions are enabled.' );
 		}
+
+		wp_set_current_user( self::$admin_id );
+
+		$manager = new WP_Customize_Manager;
+		$manager->save_changeset_post();
+
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$request->set_body_params( array(
+			'status' => 'publish',
+		) );
+		$response = $this->server->dispatch( $request );
+
+		$data = $response->get_data();
+		$this->assertSame( 'publish', $data['status'] );
+	}
+
+	/**
+	 * Test that publishing a changeset with update_item() returns a new changeset UUID.
+	 */
+	public function test_update_item_has_next_changeset_id_after_publish() {
+		wp_set_current_user( self::$admin_id );
+
+		$uuid_before = wp_generate_uuid4();
+
+		$manager = new WP_Customize_Manager( array(
+			'changeset_uuid' => $uuid_before,
+		) );
+		$manager->save_changeset_post();
+
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $uuid_before ) );
+		$request->set_body_params( array(
+			'status' => 'publish',
+		) );
+		$response = $this->server->dispatch( $request );
+
+		$data = $response->get_data();
+		$this->assertTrue( isset( $data['next_changeset_uuid'] ) );
+		$this->assertNotSame( $data['next_changeset_uuid'], $uuid_before );
+	}
+
+	/**
+	 * Test that publishing a changeset with update_item() updates a valid setting.
+	 */
+	public function test_update_item_with_bloginfo() {
+		wp_set_current_user( self::$admin_id );
+
+		$blogname_after = get_option( 'blogname' ) . ' Amended';
+
+		$manager = new WP_Customize_Manager;
+		$manager->save_changeset_post( array(
+			'data' => array(
+				'blogname' => array(
+					'value' => $blogname_after,
+				),
+			),
+		) );
+
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$request->set_body_params( array(
+			'status' => 'publish',
+		) );
+		$response = $this->server->dispatch( $request );
+
+		$this->assertSame( 200, $response->get_status() );
+		$this->assertSame( $blogname_after, get_option( 'blogname' ) );
+	}
+
+	/**
+	 * Test that update_item() returns setting validities.
+	 */
+	public function test_update_item_setting_validities() {
+		wp_set_current_user( self::$admin_id );
+
+		$bad_setting = rand_str();
+
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', wp_generate_uuid4() ) );
+		$request->set_body_params( array(
+			'customize_changeset_data' => array(
+				$bad_setting => array(
+					'value' => 'Foo',
+				),
+			),
+		) );
+		$response = $this->server->dispatch( $request );
+
+		$this->assertSame( 200, $response->get_status() );
+
+		$data = $response->get_data();
+		$this->assertTrue( isset( $data['setting_validities'][ $bad_setting ]['unrecognized'] ) );
 	}
 
 	/**
