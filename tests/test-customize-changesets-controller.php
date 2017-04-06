@@ -237,6 +237,27 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	}
 
 	/**
+	 * Test that slug of a changeset cannot be updated.
+	 */
+	public function test_update_item_cannot_change_slug() {
+		wp_set_current_user( self::$admin_id );
+
+		$manager = new WP_Customize_Manager();
+		$slug_after = 'slug-after';
+
+		$manager->save_changeset_post();
+
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$request->set_body_params( array(
+			'slug' => $slug_after,
+		) );
+		$response = $this->server->dispatch( $request );
+
+		$this->assertErrorResponse( 'cannot_change_changeset_slug', $response, 403 );
+		$this->assertSame( get_post( $manager->changeset_post_id() )->post_name, $manager->changeset_uuid() );
+	}
+
+	/**
 	 * Test that changesets cannot be created with update_item() when the user lacks capabilities.
 	 */
 	public function test_update_item_cannot_create_changeset_post() {
