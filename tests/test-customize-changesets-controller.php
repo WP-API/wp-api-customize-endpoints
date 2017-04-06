@@ -98,20 +98,12 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$response = $this->server->dispatch( $request );
 		$data = $response->get_data();
 		$properties = $data['schema']['properties'];
-		$this->assertEquals( 15, count( $properties ) );
+
+		$this->assertEquals( 6, count( $properties ) );
 		$this->assertArrayHasKey( 'author', $properties );
-		$this->assertArrayHasKey( 'content', $properties );
 		$this->assertArrayHasKey( 'date', $properties );
 		$this->assertArrayHasKey( 'date_gmt', $properties );
-		$this->assertArrayHasKey( 'excerpt', $properties );
-		$this->assertArrayHasKey( 'guid', $properties );
-		$this->assertArrayHasKey( 'id', $properties );
-		$this->assertArrayHasKey( 'link', $properties );
-		$this->assertArrayHasKey( 'meta', $properties );
-		$this->assertArrayHasKey( 'modified', $properties );
-		$this->assertArrayHasKey( 'modified_gmt', $properties );
-		$this->assertArrayHasKey( 'password', $properties );
-		$this->assertArrayHasKey( 'slug', $properties );
+		$this->assertArrayHasKey( 'settings', $properties ); // Instead of content.
 		$this->assertArrayHasKey( 'status', $properties );
 		$this->assertArrayHasKey( 'title', $properties );
 	}
@@ -122,7 +114,87 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	 * @covers WP_REST_Customize_Changesets_Controller::get_item()
 	 */
 	public function test_get_item() {
-		$this->markTestIncomplete();
+		$manager = new WP_Customize_Manager();
+		$manager->save_changeset_post();
+
+		$request = new WP_REST_Request( 'GET', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$response = $this->server->dispatch( $request );
+
+		$this->assertNotInstanceOf( 'WP_Error', $response );
+		$response = rest_ensure_response( $response );
+		$this->assertEquals( 200, $response->get_status() );
+		$this->assertEquals( 1, count( $response->get_data() ) );
+	}
+
+	/**
+	 * Test getting changeset without having proper permissions.
+	 */
+	public function test_get_changeset_without_permissions() {
+		$manager = new WP_Customize_Manager();
+		$manager->save_changeset_post();
+
+		wp_set_current_user( self::$subscriber_id );
+		$request = new WP_REST_Request( 'GET', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$response = $this->server->dispatch( $request );
+
+		$this->assertErrorResponse( 'rest_forbidden', $response, 403 );
+	}
+
+	/**
+	 * Test getting changeset with invalid UUID.
+	 */
+	public function test_get_changeset_with_invalid_uuid() {
+
+		$request = new WP_REST_Request( 'GET', sprintf( '/wp/v2/changesets/%s', REST_TESTS_IMPOSSIBLY_HIGH_NUMBER ) );
+		$response = $this->server->dispatch( $request );
+
+		$this->assertErrorResponse( 'rest_changeset_invalid_uuid', $response, 404 );
+	}
+
+	/**
+	 * Test getting changeset list with edit context with proper permissions.
+	 */
+	public function test_get_changeset_list_context_with_permission() {
+		wp_set_current_user( self::$admin_id );
+		$request = new WP_REST_Request( 'GET', '/wp/v2/changesets' );
+		$request->set_query_params( array(
+			'context' => 'edit',
+		) );
+		$response = $this->server->dispatch( $request );
+		$this->assertNotInstanceOf( 'WP_Error', $response );
+		$response = rest_ensure_response( $response );
+		$this->assertEquals( 200, $response->get_status() );
+	}
+
+	/**
+	 * Test getting changeset list with edit context without proper permissions.
+	 */
+	public function test_get_changeset_list_context_without_permission() {
+		wp_set_current_user( self::$subscriber_id );
+		$request = new WP_REST_Request( 'GET', '/wp/v2/changesets' );
+		$request->set_query_params( array(
+			'context' => 'edit',
+		) );
+		$response = $this->server->dispatch( $request );
+
+		$this->assertErrorResponse( 'rest_forbidden_context', $response, 401 );
+	}
+
+	/**
+	 * Test getting a changeset with edit context without proper permissions.
+	 */
+	public function test_get_changeset_context_without_permission() {
+		$manager = new WP_Customize_Manager();
+		$manager->save_changeset_post();
+
+		wp_set_current_user( self::$subscriber_id );
+		$request = new WP_REST_Request( 'GET', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$request->set_query_params( array(
+			'context' => 'edit',
+		) );
+		$response = $this->server->dispatch( $request );
+
+		$this->assertErrorResponse( 'rest_forbidden_context', $response, 401 );
 	}
 
 	/**
@@ -131,7 +203,19 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	 * @covers WP_REST_Customize_Changesets_Controller::get_items()
 	 */
 	public function test_get_items() {
-		$this->markTestIncomplete();
+		$request = new WP_REST_Request( 'GET', sprintf( '/wp/v2/changesets' ) );
+		$response = $this->server->dispatch( $request );
+
+		$manager1 = new WP_Customize_Manager();
+		$manager1->save_changeset_post();
+
+		$manager2 = new WP_Customize_Manager();
+		$manager2->save_changeset_post();
+
+		$this->assertNotInstanceOf( 'WP_Error', $response );
+		$response = rest_ensure_response( $response );
+		$this->assertEquals( 200, $response->get_status() );
+		$this->assertEquals( 2, count( $response->get_data() ) );
 	}
 
 	/**
@@ -302,7 +386,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	 *
 	 * TODO: Another test when the UUID is not saved to verify no post is created.
 	 *
-	 * @param string $publish_status Publish Status.
+	 * @param array $publish_status Publish Status.
 	 * @dataProvider data_published_changeset_status
 	 */
 	public function test_update_item_changeset_publish_unauthorized( $publish_status ) {
