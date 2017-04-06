@@ -129,7 +129,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	/**
 	 * Test getting changeset without having proper permissions.
 	 */
-	public function test_get_changeset_without_permissions() {
+	public function test_get_item_without_permissions() {
 		$manager = new WP_Customize_Manager();
 		$manager->save_changeset_post();
 
@@ -143,7 +143,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	/**
 	 * Test getting changeset with invalid UUID.
 	 */
-	public function test_get_changeset_with_invalid_uuid() {
+	public function test_get_item_with_invalid_uuid() {
 
 		$request = new WP_REST_Request( 'GET', sprintf( '/wp/v2/changesets/%s', REST_TESTS_IMPOSSIBLY_HIGH_NUMBER ) );
 		$response = $this->server->dispatch( $request );
@@ -154,7 +154,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	/**
 	 * Test getting changeset list with edit context with proper permissions.
 	 */
-	public function test_get_changeset_list_context_with_permission() {
+	public function test_get_item_list_context_with_permission() {
 		wp_set_current_user( self::$admin_id );
 		$request = new WP_REST_Request( 'GET', '/wp/v2/changesets' );
 		$request->set_query_params( array(
@@ -169,7 +169,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	/**
 	 * Test getting changeset list with edit context without proper permissions.
 	 */
-	public function test_get_changeset_list_context_without_permission() {
+	public function test_get_item_list_context_without_permission() {
 		wp_set_current_user( self::$subscriber_id );
 		$request = new WP_REST_Request( 'GET', '/wp/v2/changesets' );
 		$request->set_query_params( array(
@@ -183,7 +183,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	/**
 	 * Test getting a changeset with edit context without proper permissions.
 	 */
-	public function test_get_changeset_context_without_permission() {
+	public function test_get_item_context_without_permission() {
 		$manager = new WP_Customize_Manager();
 		$manager->save_changeset_post();
 
@@ -219,6 +219,13 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	}
 
 	/**
+	 * Test the case when user doesn't have permissions for some of the settings.
+	 */
+	public function test_get_item_without_permissions_to_some_settings() {
+		$this->markTestIncomplete();
+	}
+
+	/**
 	 * Test create_item.
 	 *
 	 * @covers WP_REST_Customize_Changesets_Controller::create_item()
@@ -233,6 +240,13 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	 * @covers WP_REST_Customize_Changesets_Controller::update_item()
 	 */
 	public function test_update_item() {
+		$this->markTestIncomplete();
+	}
+
+	/**
+	 * Test the case when the user doesn't have permissions to edit some of the settings within the changeset.
+	 */
+	public function test_update_item_cannot_edit_some_settings() {
 		$this->markTestIncomplete();
 	}
 
@@ -253,7 +267,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		) );
 		$response = $this->server->dispatch( $request );
 
-		$this->assertErrorResponse( 'cannot_change_changeset_slug', $response, 403 );
+		$this->assertErrorResponse( 'cannot_edit_changeset_slug', $response, 403 );
 		$this->assertSame( get_post( $manager->changeset_post_id() )->post_name, $manager->changeset_uuid() );
 	}
 
