@@ -345,7 +345,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
 		$request->set_body_params( array(
-			'date' => $date_after,
+			'date_gmt' => $date_after,
 		) );
 		$response = $this->server->dispatch( $request );
 
@@ -366,7 +366,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$manager = new WP_Customize_Manager;
 		$manager->save_changeset_post( array(
-			'date' => $future_date,
+			'date_gmt' => $future_date,
 			'status' => 'future',
 		) );
 
@@ -393,7 +393,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$manager = new WP_Customize_Manager;
 		$manager->save_changeset_post( array(
-			'date' => $future_date,
+			'date_gmt' => $future_date,
 			'status' => 'draft',
 		) );
 
@@ -420,7 +420,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$manager = new WP_Customize_Manager;
 		$manager->save_changeset_post( array(
-			'date' => ( strtotime( $this_year ) + YEAR_IN_SECONDS ),
+			'date_gmt' => ( strtotime( $this_year ) + YEAR_IN_SECONDS ),
 			'status' => 'future',
 		) );
 
@@ -445,7 +445,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$manager = new WP_Customize_Manager;
 		$manager->save_changeset_post( array(
-			'date' => date( 'Y-m-d H:i:s', strtotime( '-1 year' ) ),
+			'date_gmt' => date( 'Y-m-d H:i:s', strtotime( '-1 year' ) ),
 		) );
 
 		$status_before = get_post_status( $manager->changeset_post_id() );
@@ -475,7 +475,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
 		$request->set_body_params( array(
-			'date' => 'BAD DATE',
+			'date_gmt' => 'BAD DATE',
 		) );
 		$response = $this->server->dispatch( $request );
 
