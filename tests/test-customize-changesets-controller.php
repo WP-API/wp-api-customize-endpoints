@@ -461,7 +461,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	public function test_update_item_changeset_already_published( $published_status ) {
 		wp_set_current_user( self::$admin_id );
 
-		$manager = new WP_Customize_Manager;
+		$manager = new WP_Customize_Manager();
 		$manager->save_changeset_post( array(
 			'customize_changeset_data' => array(
 				'basic_option' => array(
@@ -557,7 +557,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$future_date = date( 'Y-m-d H:i:s', strtotime( '+1 year' ) );
 
-		$manager = new WP_Customize_Manager;
+		$manager = new WP_Customize_Manager();
 		$manager->save_changeset_post( array(
 			'date_gmt' => $future_date,
 			'status' => 'draft',
@@ -584,7 +584,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$this_year = date( 'Y' );
 
-		$manager = new WP_Customize_Manager;
+		$manager = new WP_Customize_Manager();
 		$manager->save_changeset_post( array(
 			'date_gmt' => ( strtotime( $this_year ) + YEAR_IN_SECONDS ),
 			'status' => 'future',
@@ -609,7 +609,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	public function test_update_item_not_future_date_with_future_status() {
 		wp_set_current_user( self::$admin_id );
 
-		$manager = new WP_Customize_Manager;
+		$manager = new WP_Customize_Manager();
 		$manager->save_changeset_post( array(
 			'date_gmt' => date( 'Y-m-d H:i:s', strtotime( '-1 year' ) ),
 		) );
