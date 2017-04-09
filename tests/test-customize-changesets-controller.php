@@ -52,6 +52,15 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	}
 
 	/**
+	 * Return a WP_Error with an 'illegal' code..
+	 *
+	 * @return WP_Error
+	 */
+	public function __return_error_illegal() {
+		return new WP_Error( 'illegal' );
+	}
+
+	/**
 	 * Test register_routes.
 	 *
 	 * @covers WP_REST_Customize_Changesets_Controller::register_routes()
@@ -604,6 +613,27 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	}
 
 	/**
+	 * Test that update_item() rejects setting the date of a changeset to the past.
+	 */
+	public function test_update_item_not_future_date_with_past_date() {
+		wp_set_current_user( self::$admin_id );
+
+		$manager = new WP_Customize_Manager();
+		$manager->save_changeset_post();
+
+		$date_before = get_post( $manager->changeset_post_id() )->post_date_gmt;
+
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$request->set_body_params( array(
+			'date_gmt' => strtotime( '-1 week' ),
+		) );
+		$response = $this->server->dispatch( $request );
+
+		$this->assertErrorResponse( 'not_future_date', $response );
+		$this->assertSame( $date_before, get_post( $manager->changeset_post_id() )->post_date_gmt );
+	}
+
+	/**
 	 * Test that update_item() rejects scheduling a changeset when it has a past date.
 	 */
 	public function test_update_item_not_future_date_with_future_status() {
@@ -624,6 +654,27 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$this->assertErrorResponse( 'not_future_date', $response );
 		$this->assertSame( $status_before, get_post_status( $manager->changeset_post_id() ) );
+	}
+
+	/**
+	 * Test that update_item() rejects setting a the date of an auto-draft changeset.
+	 */
+	public function test_update_item_cannot_supply_date_for_auto_draft_changeset() {
+		wp_set_current_user( self::$admin_id );
+
+		$uuid = wp_generate_uuid4();
+		$manager = new WP_Customize_Manager( array(
+			'changeset_uuid' => $uuid,
+		) );
+
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $uuid ) );
+		$request->set_body_params( array(
+			'date_gmt' => strtotime( '+1 week' ),
+		) );
+		$response = $this->server->dispatch( $request );
+
+		$this->assertErrorResponse( 'cannot_supply_date_for_auto_draft_changeset', $response );
+		$this->assertEmpty( $manager->changeset_post_id() );
 	}
 
 	/**
@@ -745,6 +796,58 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$data = $response->get_data();
 		$this->assertTrue( isset( $data['setting_validities'][ $bad_setting ]['unrecognized'] ) );
+	}
+
+	/**
+	 * Test that using update_item() to transactionally update a changeset fails when settings are invalid.
+	 */
+	public function test_update_item_transaction_fail_setting_validities() {
+		wp_set_current_user( self::$admin_id );
+
+		$illegal_setting = 'foo_illegal';
+		add_filter( "customize_validate_{$illegal_setting}", array( $this, '__return_error_illegal' ) );
+
+		$manager = new WP_Customize_Manager();
+
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$request->set_body_params( array(
+			'customize_changeset_data' => array(
+				$illegal_setting => array(
+					'value' => 'Foo',
+				),
+			),
+		) );
+		$response = $this->server->dispatch( $request );
+
+		$this->assertErrorResponse( 'transaction_fail', $response );
+
+		$error_data = $response->as_error()->get_error_data();
+		$illegal_code = $this->__return_error_illegal()->get_error_code();
+		$this->assertNotEmpty( $error_data['setting_validities'][ $illegal_setting ][ $illegal_code ] );
+	}
+
+	/**
+	 * Test that update_item() reports errors inserting or updating a changeset.
+	 */
+	public function test_update_item_changeset_post_save_failure() {
+		wp_set_current_user( self::$admin_id );
+
+		add_filter( 'wp_insert_post_empty_content', '__return_true' );
+
+		$manager = new WP_Customize_Manager();
+
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$request->set_body_params( array(
+			'status' => 'draft',
+		) );
+		$response = $this->server->dispatch( $request );
+
+		$error_code = 'changeset_post_save_failure';
+
+		$this->assertErrorResponse( $error_code, $response );
+
+		$error_data = $response->as_error()->get_error_data();
+		$this->assertSame( 'empty_content', $error_data[ $error_code ][ $error_code ] );
 	}
 
 	/**
