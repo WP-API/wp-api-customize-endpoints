@@ -285,6 +285,13 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	}
 
 	/**
+	 * Test getting item with filter applied.
+	 */
+	public function test_get_item_with_filter() {
+		$this->markTestIncomplete();
+	}
+
+	/**
 	 * Test create_item.
 	 *
 	 * @covers WP_REST_Customize_Changesets_Controller::create_item()
@@ -303,10 +310,71 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	}
 
 	/**
+	 * Test updating item with filter applied.
+	 */
+	public function test_update_item_with_filter() {
+		$this->markTestIncomplete();
+	}
+
+	/**
 	 * Test the case when the user doesn't have permissions to edit some of the settings within the changeset.
 	 */
 	public function test_update_item_cannot_edit_some_settings() {
-		$this->markTestIncomplete();
+		$manager = new WP_Customize_Manager();
+		$setting_allowed_id = 'allowed_setting';
+		$setting_allowed = new WP_Customize_Setting( $manager, $setting_allowed_id );
+		$result_setting1 = $manager->add_setting( $setting_allowed );
+		$result_setting1->capability = 'editor_can_edit';
+
+		$setting_forbidden_id = 'forbidden_setting';
+		$setting_forbidden = new WP_Customize_Setting( $manager, $setting_forbidden_id );
+		$result_setting2 = $manager->add_setting( $setting_forbidden );
+		$result_setting2->capability = 'noone_can_edit';
+
+		wp_set_current_user( self::$editor_id );
+		$user = new WP_User( self::$editor_id );
+		$user->add_cap( 'editor_can_edit' );
+
+		$manager = new WP_Customize_Manager();
+		$manager->save_changeset_post( array(
+			'customize_changeset_data' => array(
+				$setting_allowed_id => array(
+					'value' => 'Foo',
+				),
+				$setting_forbidden_id => array(
+					'value' => 'Bar',
+				),
+			),
+		) );
+
+		$changed_value = 'changed_setting_value';
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$request->set_body_params( array(
+			$setting_forbidden_id => array(
+				'value' => $changed_value,
+			),
+			$setting_allowed_id => array(
+				'value' => $changed_value,
+			),
+		) );
+		$response = $this->server->dispatch( $request );
+		$this->assertErrorResponse( 'rest_forbidden', $response, 403 );
+
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$request->set_body_params( array(
+			$setting_allowed_id => array(
+				'value' => $changed_value,
+			),
+		) );
+		$response = $this->server->dispatch( $request );
+
+		$this->assertNotInstanceOf( 'WP_Error', $response );
+		$response = rest_ensure_response( $response );
+
+		$changeset_data = $response->get_data();
+		$changeset_settings = json_decode( $changeset_data[0]['post_content'], true );
+
+		$this->assertSame( 'setting_value', $changeset_settings[ $setting_allowed_id ]['value'] );
 	}
 
 	/**
