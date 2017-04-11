@@ -449,7 +449,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$this->assertSame( 200, $response->get_status() );
 
 		$data = $response->get_data();
-		$this->assertSame( $data['title'], $title_after );
+		$this->assertSame( $data['title'], $title );
 
 		$manager = new WP_Customize_Manager();
 		$this->assertSame( get_post( $manager->find_changeset_post_id( $uuid ) )->post_title, $title );
@@ -605,6 +605,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	/**
 	 * Test that update_item() rejects updating a published changeset.
 	 *
+	 * @param string $published_status Published status.
 	 * @dataProvider data_published_changeset_status
 	 */
 	public function test_update_item_changeset_already_published( $published_status ) {
@@ -653,7 +654,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		wp_set_current_user( self::$admin_id );
 
 		$uuid = wp_generate_uuid4();
-		$date_gmt = date( 'Y-m-d H:i:s', ( strtotime( $date_before ) + YEAR_IN_SECONDS ) );
+		$date_gmt = date( 'Y-m-d H:i:s', ( time() + YEAR_IN_SECONDS ) );
 
 		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $uuid ) );
 		$request->set_body_params( array(
