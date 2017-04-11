@@ -31,6 +31,15 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	protected static $admin_id;
 
 	/**
+	 * Editor user ID.
+	 *
+	 * @todo Grant or deny caps to the user rather than assuming that roles do or don't have caps.
+	 *
+	 * @var int
+	 */
+	protected static $editor_id;
+
+	/**
 	 * Set up before class.
 	 *
 	 * @param object $factory Factory.
@@ -48,6 +57,10 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		self::$admin_id = $factory->user->create( array(
 			'role' => 'administrator',
+		) );
+
+		self::$editor_id = $factory->user->create( array(
+			'role' => 'editor',
 		) );
 	}
 
@@ -231,7 +244,44 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	 * Test the case when user doesn't have permissions for some of the settings.
 	 */
 	public function test_get_item_without_permissions_to_some_settings() {
-		$this->markTestIncomplete();
+		$manager = new WP_Customize_Manager();
+		$setting_allowed_id = 'allowed_setting';
+		$setting_allowed = new WP_Customize_Setting( $manager, $setting_allowed_id );
+		$result_setting1 = $manager->add_setting( $setting_allowed );
+		$result_setting1->capability = 'editor_can_see';
+
+		$setting_forbidden_id = 'forbidden_setting';
+		$setting_forbidden = new WP_Customize_Setting( $manager, $setting_forbidden_id );
+		$result_setting2 = $manager->add_setting( $setting_forbidden );
+		$result_setting2->capability = 'editor_can_not_see';
+
+		wp_set_current_user( self::$editor_id );
+		$user = new WP_User( self::$editor_id );
+		$user->add_cap( 'editor_can_see' );
+
+		$manager = new WP_Customize_Manager();
+		$manager->save_changeset_post( array(
+			'customize_changeset_data' => array(
+				$setting_allowed_id => array(
+					'value' => 'Foo',
+				),
+				$setting_forbidden_id => array(
+					'value' => 'Bar',
+				),
+			),
+		) );
+
+		$request = new WP_REST_Request( 'GET', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$response = $this->server->dispatch( $request );
+
+		$this->assertNotInstanceOf( 'WP_Error', $response );
+		$response = rest_ensure_response( $response );
+
+		$changeset_data = $response->get_data();
+		$changeset_settings = json_decode( $changeset_data[0]['post_content'], true );
+
+		$this->assertTrue( isset( $changeset_settings[ $setting_allowed_id ] ) );
+		$this->assertFalse( isset( $changeset_settings[ $setting_forbidden_id ] ) );
 	}
 
 	/**
@@ -725,7 +775,8 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$data = $response->get_data();
 		$this->assertSame( $this_year, date( 'Y', strtotime( $data['date_gmt'] ) ) );
-		$this->assertSame( $this_year, date( 'Y', strtotime( ( $manager->changeset_post_id() )->post_date_gmt ) ) );
+		$changeset_post = get_post( $manager->changeset_post_id() );
+		$this->assertSame( $this_year, date( 'Y', strtotime( $changeset_post->post_date_gmt ) ) );
 	}
 
 	/**
