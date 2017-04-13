@@ -23,8 +23,8 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	 * @access public
 	 */
 	public function __construct() {
-		$this->namespace = 'wp/v2';
-		$this->rest_base = 'customize/changesets';
+		$this->namespace = 'customize/v1';
+		$this->rest_base = 'changesets';
 
 		// @todo meta?
 	}
