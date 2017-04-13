@@ -280,15 +280,55 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$changeset_data = $response->get_data();
 		$changeset_settings = json_decode( $changeset_data[0]['post_content'], true );
 
-		$this->assertTrue( isset( $changeset_settings[ $setting_allowed_id ] ) );
+		$this->assertArrayHasKey( $setting_allowed_id, $changeset_settings );
 		$this->assertFalse( isset( $changeset_settings[ $setting_forbidden_id ] ) );
+	}
+
+	/**
+	 * Filter for GET request.
+	 *
+	 * @param object $changeset_post WP_Post.
+	 * @param array  $changeset_data Changed data (post_content).
+	 * @return object mixed Filtered data.
+	 */
+	public function get_changeset_custom_callback( $changeset_post, $changeset_data ) {
+
+		$changeset_data = array(
+			'foo' => array(
+				'value' => 'bar',
+			),
+		);
+		$json_options = 0;
+		if ( defined( 'JSON_UNESCAPED_SLASHES' ) ) {
+			$json_options |= JSON_UNESCAPED_SLASHES;
+		}
+		$json_options |= JSON_PRETTY_PRINT;
+		$changeset_post->post_content = wp_json_encode( $changeset_data, $json_options );
+
+		return $changeset_post;
 	}
 
 	/**
 	 * Test getting item with filter applied.
 	 */
 	public function test_get_item_with_filter() {
-		$this->markTestIncomplete();
+		wp_set_current_user( self::$admin_id );
+
+		add_filter( 'rest_pre_get_changeset', array( $this, 'get_changeset_custom_callback' ), 10, 3 );
+
+		$manager = new WP_Customize_Manager();
+		$manager->save_changeset_post();
+
+		$request = new WP_REST_Request( 'GET', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$response = $this->server->dispatch( $request );
+		$changeset_data = $response->get_data();
+
+		$changeset_settings = json_decode( $changeset_data[0]['post_content'], true );
+
+		$this->assertArrayHasKey( 'foo', $changeset_settings );
+		$this->assertSame( $changeset_settings['foo']['value'], 'bar' );
+
+		remove_all_filters( 'rest_pre_get_changeset' );
 	}
 
 	/**
@@ -310,10 +350,50 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	}
 
 	/**
+	 * Filters updating changeset.
+	 *
+	 * @todo Needs modifications later according to the filter.
+	 * @param array $data Array of data to change.
+	 * @param int   $changeset_post_id Changeset Post ID.
+	 * @return array mixed Array of data.
+	 */
+	public function update_changeset_custom_callback( $data, $changeset_post_id ) {
+		if ( isset( $data['title'] ) ) {
+			unset( $data['title'] );
+		}
+
+		return $data;
+	}
+
+	/**
 	 * Test updating item with filter applied.
+	 *
+	 * @todo Needs modifications later according to the filter.
 	 */
 	public function test_update_item_with_filter() {
-		$this->markTestIncomplete();
+		wp_set_current_user( self::$admin_id );
+
+		$title_before = 'Title before';
+		$manager = new WP_Customize_Manager();
+		$manager->save_changeset_post( array(
+			'title' => $title_before,
+		) );
+
+		add_filter( 'rest_pre_update_changeset', array( $this, 'update_changeset_custom_callback' ), 10, 4 );
+
+		$title_after = 'Title after';
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$request->set_param( 'title', $title_after );
+		$request->set_param( 'status', 'draft' );
+
+		$response = $this->server->dispatch( $request );
+		$data = $response->get_data();
+
+		$this->assertEquals( 200, $response->get_status() );
+		$this->assertEquals( $title_before, $data['title'] );
+		$this->assertEquals( 'draft', $data['status'] );
+
+		remove_all_filters( 'rest_pre_update_changeset' );
 	}
 
 	/**
