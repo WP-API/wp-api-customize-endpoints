@@ -92,7 +92,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	public function test_context_param() {
 
 		// Test collection.
-		$request = new WP_REST_Request( 'OPTIONS', '/wp/v2/changesets' );
+		$request = new WP_REST_Request( 'OPTIONS', '/wp/v2/customize/changesets' );
 		$response = $this->server->dispatch( $request );
 		$data = $response->get_data();
 		$this->assertEquals( 'view', $data['endpoints'][0]['args']['context']['default'] );
@@ -116,12 +116,13 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	public function test_get_item_schema() {
 
 		// @todo Add all properties.
-		$request = new WP_REST_Request( 'OPTIONS', '/wp/v2/changesets' );
+		$request = new WP_REST_Request( 'OPTIONS', '/wp/v2/customize/changesets' );
 		$response = $this->server->dispatch( $request );
 		$data = $response->get_data();
+		$this->assertEquals( $data, array( 'karu' ) );
 		$properties = $data['schema']['properties'];
 
-		$this->assertEquals( 6, count( $properties ) );
+		$this->assertEquals( 8, count( $properties ) );
 		$this->assertArrayHasKey( 'author', $properties );
 		$this->assertArrayHasKey( 'date', $properties );
 		$this->assertArrayHasKey( 'date_gmt', $properties );

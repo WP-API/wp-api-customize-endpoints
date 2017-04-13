@@ -94,4 +94,86 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 			'schema' => array( $this, 'get_public_item_schema' ),
 		) );
 	}
+
+	/**
+	 * Retrieves the changeset's schema, conforming to JSON Schema.
+	 *
+	 * @since 4.?.?
+	 * @access public
+	 *
+	 * @return array Item schema data.
+	 */
+	public function get_item_schema() {
+
+		$schema = array(
+			'$schema'    => 'http://json-schema.org/schema#',
+			'title'      => 'customize_changeset',
+			'type'       => 'object',
+			'properties' => array(
+				'author'          => array(
+					'description' => __( 'The ID for the author of the object.' ),
+					'type'        => 'integer',
+					'context'     => array( 'view', 'edit', 'embed' ),
+				),
+				'date'            => array(
+					'description' => __( "The date the object was published, in the site's timezone." ),
+					'type'        => 'string',
+					'format'      => 'date-time',
+					'context'     => array( 'view', 'edit', 'embed' ),
+				),
+				'date_gmt'        => array(
+					'description' => __( 'The date the object was published, as GMT.' ),
+					'type'        => 'string',
+					'format'      => 'date-time',
+					'context'     => array( 'view', 'edit' ),
+				),
+				'settings'        => array(
+					'description' => __( 'The content of the customize changeset. Changed settings in JSON format.' ),
+					'type'        => 'string',
+					'context'     => array( 'view', 'edit' ),
+					'arg_options' => array(
+						'sanitize_callback' => null,
+					),
+				),
+				'slug'            => array(
+					'description' => __( 'Unique Customize Changeset identifier, uuid' ),
+					'type'        => 'string',
+					'context'     => array( 'view', 'edit', 'embed' ),
+					'arg_options' => array(
+						'sanitize_callback' => array( $this, 'sanitize_slug' ),
+					),
+					'readonly'   => true,
+				),
+				'status'          => array(
+					'description' => __( 'A named status for the object.' ),
+					'type'        => 'string',
+					'enum'        => array_keys( get_post_stati( array( 'internal' => false ) ) ),
+					'context'     => array( 'view', 'edit' ),
+				),
+				'title'           => array(
+					'description' => __( 'The title for the object.' ),
+					'type'        => 'object',
+					'context'     => array( 'view', 'edit', 'embed' ),
+					'arg_options' => array(
+						'sanitize_callback' => null,
+					),
+					'properties'  => array(
+						'raw' => array(
+							'description' => __( 'Title for the object, as it exists in the database.' ),
+							'type'        => 'string',
+							'context'     => array( 'edit' ),
+						),
+						'rendered' => array(
+							'description' => __( 'HTML title for the object, transformed for display.' ),
+							'type'        => 'string',
+							'context'     => array( 'view', 'edit', 'embed' ),
+							'readonly'    => true,
+						),
+					),
+				),
+			),
+		);
+
+		return $this->add_additional_fields_schema( $schema );
+	}
 }
