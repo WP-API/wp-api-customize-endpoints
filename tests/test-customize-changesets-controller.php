@@ -341,6 +341,138 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	}
 
 	/**
+	 * Test tha creating changeset with invalid data fails.
+	 */
+	public function test_create_item_invalid_data() {
+		wp_set_current_user( self::$editor_id );
+
+		$request = new WP_REST_Request( 'POST', '/wp/v2/changesets' );
+		$request->set_body_params( array(
+			'customize_changeset_data' => '[MALFORMED]',
+		) );
+		$response = $this->server->dispatch( $request );
+
+		$this->assertErrorResponse( 'invalid_customize_changeset_data', $response, 400 );
+	}
+
+	/**
+	 * Test that editor can create a changeset.
+	 */
+	public function test_create_item_as_editor() {
+		wp_set_current_user( self::$editor_id );
+
+		$request = new WP_REST_Request( 'POST', '/wp/v2/changesets' );
+		$request->set_body_params( array(
+			'customize_changeset_data' => array(
+				'foo' => array(
+					'value' => 'bar',
+				),
+			),
+			'title' => 'Title',
+		) );
+		$response = $this->server->dispatch( $request );
+		$data = $response->get_data();
+
+		$this->assertEquals( 200, $response->get_status() );
+		$this->assertEquals( 'Title', $data['title'] );
+
+		$changeset_settings = json_decode( $data[0]['post_content'], true );
+		$this->assertSame( 'bar', $changeset_settings['foo']['value'] );
+	}
+
+	/**
+	 * Test that subscriber can't create a changeset.
+	 */
+	public function test_create_item_without_permission() {
+		wp_set_current_user( self::$subscriber_id );
+
+		$request = new WP_REST_Request( 'POST', '/wp/v2/changesets' );
+		$request->set_body_params( array(
+			'title' => 'Title',
+		) );
+		$response = $this->server->dispatch( $request );
+
+		$this->assertErrorResponse( 'rest_forbidden', $response, 403 );
+	}
+
+	/**
+	 * Test creating an item with 'publish' status.
+	 */
+	public function test_create_item_already_published() {
+		wp_set_current_user( self::$admin_id );
+
+		$request = new WP_REST_Request( 'POST', '/wp/v2/changesets' );
+		$request->set_param( 'status', 'publish' );
+
+		$response = $this->server->dispatch( $request );
+		$this->assertErrorResponse( 'bad_customize_changeset_status', $response, 400 );
+	}
+
+	/**
+	 * Test that changeset can't be created with invalid status.
+	 *
+	 * @dataProvider data_bad_customize_changeset_status
+	 * @param string $bad_status Bad status.
+	 */
+	public function test_create_item_invalid_status( $bad_status ) {
+		wp_set_current_user( self::$admin_id );
+
+		$request = new WP_REST_Request( 'POST', '/wp/v2/changesets' );
+		$request->set_param( 'status', $bad_status );
+
+		$response = $this->server->dispatch( $request );
+		$this->assertErrorResponse( 'bad_customize_changeset_status', $response, 400 );
+	}
+
+	/**
+	 * Test creating a changeset without having permissions to the changed settings.
+	 */
+	public function test_create_item_without_settings_permissions() {
+		wp_set_current_user( self::$editor_id );
+		$user = new WP_User( self::$editor_id );
+		$user->remove_cap( 'edit_theme_options' );
+
+		$request = new WP_REST_Request( 'POST', '/wp/v2/changesets' );
+		$request->set_body_params( array(
+			'customize_changeset_data' => array(
+				'title' => array(
+					'value' => 'Title',
+				),
+			),
+		) );
+		$response = $this->server->dispatch( $request );
+		$this->assertErrorResponse( 'rest_forbidden', $response, 403 );
+		$user->remove_cap( 'edit_theme_options' );
+	}
+
+	/**
+	 * Test that choosing a custom slug is frobidden.
+	 */
+	public function test_create_item_try_custom_slug() {
+		wp_set_current_user( self::$admin_id );
+
+		$request = new WP_REST_Request( 'POST', '/wp/v2/changesets' );
+
+		$request->set_param( 'id', 1 );
+		$response = $this->server->dispatch( $request );
+
+		$this->assertErrorResponse( 'rest_post_exists', $response, 400 );
+	}
+
+	/**
+	 * Test creating an item with already existing post ID.
+	 */
+	public function test_create_item_with_existing_post_id() {
+		wp_set_current_user( self::$admin_id );
+
+		$request = new WP_REST_Request( 'POST', '/wp/v2/changesets' );
+		$request->set_param( 'name', 'slug' );
+
+		$response = $this->server->dispatch( $request );
+		$this->assertErrorResponse( 'invalid_customize_changeset_data', $response, 400 );
+	}
+
+	/**
 	 * Test update_item.
 	 *
 	 * @covers WP_REST_Customize_Changesets_Controller::update_item()
@@ -430,11 +562,13 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$changed_value = 'changed_setting_value';
 		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
 		$request->set_body_params( array(
-			$setting_forbidden_id => array(
-				'value' => $changed_value,
-			),
-			$setting_allowed_id => array(
-				'value' => $changed_value,
+			'customize_changeset_data' => array(
+				$setting_forbidden_id => array(
+					'value' => $changed_value,
+				),
+				$setting_allowed_id => array(
+					'value' => $changed_value,
+				),
 			),
 		) );
 		$response = $this->server->dispatch( $request );
