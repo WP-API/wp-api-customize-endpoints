@@ -452,11 +452,10 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		wp_set_current_user( self::$admin_id );
 
 		$request = new WP_REST_Request( 'POST', '/wp/v2/changesets' );
+		$request->set_param( 'name', 'slug' );
 
-		$request->set_param( 'id', 1 );
 		$response = $this->server->dispatch( $request );
-
-		$this->assertErrorResponse( 'rest_post_exists', $response, 400 );
+		$this->assertErrorResponse( 'invalid_customize_changeset_data', $response, 400 );
 	}
 
 	/**
@@ -466,8 +465,36 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		wp_set_current_user( self::$admin_id );
 
 		$request = new WP_REST_Request( 'POST', '/wp/v2/changesets' );
-		$request->set_param( 'name', 'slug' );
 
+		$request->set_param( 'id', 1 );
+		$response = $this->server->dispatch( $request );
+
+		$this->assertErrorResponse( 'rest_post_exists', $response, 400 );
+	}
+
+	/**
+	 * Test that creating a customize changeset with non-existent post ID-s fails.
+	 */
+	public function test_create_item_with_invalid_setting_values() {
+		wp_set_current_user( self::$admin_id );
+		$menu_id = wp_create_nav_menu( 'menu' );
+		$menu_item_id = wp_update_nav_menu_item( $menu_id, 0 );
+
+		$request = new WP_REST_Request( 'POST', '/wp/v2/changesets' );
+
+		$args = array(
+			'menu-item-object-id' => REST_TESTS_IMPOSSIBLY_HIGH_NUMBER,
+			'menu-item-object' => 'post',
+		);
+		$params = array(
+			'customize_changeset_data' => array(
+				'nav_menu_item[' . $menu_item_id . ']' => array(
+					'value' => $args,
+					'type' => 'nav_menu_item',
+				),
+			),
+		);
+		$request->set_body_params( $params );
 		$response = $this->server->dispatch( $request );
 		$this->assertErrorResponse( 'invalid_customize_changeset_data', $response, 400 );
 	}
