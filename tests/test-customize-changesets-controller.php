@@ -553,9 +553,9 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	/**
 	 * Test that update_item() rejects creating changesets with nonexistant and disallowed post statuses.
 	 *
-	 * @param string $bad_status Bad status.
-	 *
 	 * @dataProvider data_bad_customize_changeset_status
+	 *
+	 * @param string $bad_status Bad status.
 	 */
 	public function test_update_item_create_bad_customize_changeset_status( $bad_status ) {
 		wp_set_current_user( self::$admin_id );
@@ -577,9 +577,9 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	/**
 	 * Test that update_item() rejects updating a changeset with nonexistant and disallowed post statuses.
 	 *
-	 * @param string $bad_status Bad status.
-	 *
 	 * @dataProvider data_bad_customize_changeset_status
+	 *
+	 * @param string $bad_status Bad status.
 	 */
 	public function test_update_item_edit_bad_customize_changeset_status( $bad_status ) {
 		wp_set_current_user( self::$admin_id );
@@ -673,8 +673,9 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	/**
 	 * Test that update_item() rejects updating a published changeset.
 	 *
-	 * @param string $published_status Published status.
 	 * @dataProvider data_published_changeset_status
+	 *
+	 * @param string $published_status Published status.
 	 */
 	public function test_update_item_changeset_already_published( $published_status ) {
 		wp_set_current_user( self::$admin_id );
@@ -849,9 +850,29 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	}
 
 	/**
-	 * Test that update_item() rejects setting the date of a changeset to the past.
+	 * Test that update_item() rejects creating a changeset with a past date.
 	 */
-	public function test_update_item_not_future_date_with_past_date() {
+	public function test_update_item_create_not_future_date_with_past_date() {
+		wp_set_current_user( self::$admin_id );
+
+		$uuid = wp_generate_uuid4();
+
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $uuid ) );
+		$request->set_body_params( array(
+			'date_gmt' => strtotime( '-1 week' ),
+		) );
+		$response = $this->server->dispatch( $request );
+
+		$this->assertErrorResponse( 'not_future_date', $response );
+
+		$manager = new WP_Customize_Manager();
+		$this->assertNull( $manager->find_changeset_post_id( $uuid ) );
+	}
+
+	/**
+	 * Test that update_item() rejects editing a changeset with a date in the past.
+	 */
+	public function test_update_item_edit_not_future_date_with_past_date() {
 		wp_set_current_user( self::$admin_id );
 
 		$manager = new WP_Customize_Manager();
@@ -893,15 +914,12 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	}
 
 	/**
-	 * Test that update_item() rejects setting a the date of an auto-draft changeset.
+	 * Test that update_item() rejects creating an auto-draft changeset with a date.
 	 */
-	public function test_update_item_cannot_supply_date_for_auto_draft_changeset() {
+	public function test_update_item_create_cannot_supply_date_for_auto_draft_changeset() {
 		wp_set_current_user( self::$admin_id );
 
 		$uuid = wp_generate_uuid4();
-		$manager = new WP_Customize_Manager( array(
-			'changeset_uuid' => $uuid,
-		) );
 
 		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $uuid ) );
 		$request->set_body_params( array(
@@ -910,15 +928,57 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$response = $this->server->dispatch( $request );
 
 		$this->assertErrorResponse( 'cannot_supply_date_for_auto_draft_changeset', $response );
-		$this->assertEmpty( $manager->changeset_post_id() );
+
+		$manager = new WP_Customize_Manager();
+		$this->assertNull( $manager->find_changeset_post_id( $uuid ) );
 	}
 
 	/**
-	 * Test that update_item() rejects invalid changeset dates.
-	 *
-	 * TODO: Another test when the UUID is not saved to verify no post is created.
+	 * Test that update_item() rejects editing an auto-draft changeset with a date.
 	 */
-	public function test_update_item_bad_customize_changeset_date() {
+	public function test_update_item_edit_cannot_supply_date_for_auto_draft_changeset() {
+		wp_set_current_user( self::$admin_id );
+
+		$manager = new WP_Customize_Manager();
+		$manager->save_changeset_post();
+
+		$status_before = get_post_type( $manager->changeset_post_id() );
+		$this->assertSame( 'auto-draft', $status_before );
+
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$request->set_body_params( array(
+			'date_gmt' => strtotime( '+1 week' ),
+		) );
+		$response = $this->server->dispatch( $request );
+
+		$this->assertErrorResponse( 'cannot_supply_date_for_auto_draft_changeset', $response );
+		$this->assertSame( $status_before, get_post_status( $manager->changeset_post_id() ) );
+	}
+
+	/**
+	 * Test that update_item() rejects creating a changeset with an invalid date.
+	 */
+	public function test_update_item_create_bad_customize_changeset_date() {
+		wp_set_current_user( self::$admin_id );
+
+		$uuid = wp_generate_uuid4();
+
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $uuid ) );
+		$request->set_body_params( array(
+			'date_gmt' => 'BAD DATE',
+		) );
+		$response = $this->server->dispatch( $request );
+
+		$this->assertErrorResponse( 'bad_customize_changeset_date', $response, 400 );
+
+		$manager = new WP_Customize_Manager();
+		$this->assertNull( $manager->find_changeset_post_id( $uuid ) );
+	}
+
+	/**
+	 * Test that update_item() rejects editing a changeset with an invalid date.
+	 */
+	public function test_update_item_edit_bad_customize_changeset_date() {
 		wp_set_current_user( self::$admin_id );
 
 		$manager = new WP_Customize_Manager();
