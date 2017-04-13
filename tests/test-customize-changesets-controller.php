@@ -92,7 +92,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	public function test_context_param() {
 
 		// Test collection.
-		$request = new WP_REST_Request( 'OPTIONS', '/wp/v2/changesets' );
+		$request = new WP_REST_Request( 'OPTIONS', '/wp/v2/customize/changesets' );
 		$response = $this->server->dispatch( $request );
 		$data = $response->get_data();
 		$this->assertEquals( 'view', $data['endpoints'][0]['args']['context']['default'] );
@@ -101,7 +101,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		// Test single.
 		$manager = new WP_Customize_Manager();
 		$manager->save_changeset_post();
-		$request = new WP_REST_Request( 'OPTIONS', '/wp/v2/changesets/' . $manager->changeset_uuid() );
+		$request = new WP_REST_Request( 'OPTIONS', '/wp/v2/customize/changesets/' . $manager->changeset_uuid() );
 		$response = $this->server->dispatch( $request );
 		$data = $response->get_data();
 		$this->assertEquals( 'view', $data['endpoints'][0]['args']['context']['default'] );
@@ -116,7 +116,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	public function test_get_item_schema() {
 
 		// @todo Add all properties.
-		$request = new WP_REST_Request( 'OPTIONS', '/wp/v2/changesets' );
+		$request = new WP_REST_Request( 'OPTIONS', '/wp/v2/customize/changesets' );
 		$response = $this->server->dispatch( $request );
 		$data = $response->get_data();
 		$properties = $data['schema']['properties'];
@@ -139,7 +139,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$manager = new WP_Customize_Manager();
 		$manager->save_changeset_post();
 
-		$request = new WP_REST_Request( 'GET', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$request = new WP_REST_Request( 'GET', sprintf( '/wp/v2/customize/changesets/%s', $manager->changeset_uuid() ) );
 		$response = $this->server->dispatch( $request );
 
 		$this->assertNotInstanceOf( 'WP_Error', $response );
@@ -156,7 +156,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$manager->save_changeset_post();
 
 		wp_set_current_user( self::$subscriber_id );
-		$request = new WP_REST_Request( 'GET', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$request = new WP_REST_Request( 'GET', sprintf( '/wp/v2/customize/changesets/%s', $manager->changeset_uuid() ) );
 		$response = $this->server->dispatch( $request );
 
 		$this->assertErrorResponse( 'rest_forbidden', $response, 403 );
@@ -167,7 +167,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	 */
 	public function test_get_item_with_invalid_uuid() {
 
-		$request = new WP_REST_Request( 'GET', sprintf( '/wp/v2/changesets/%s', REST_TESTS_IMPOSSIBLY_HIGH_NUMBER ) );
+		$request = new WP_REST_Request( 'GET', sprintf( '/wp/v2/customize/changesets/%s', REST_TESTS_IMPOSSIBLY_HIGH_NUMBER ) );
 		$response = $this->server->dispatch( $request );
 
 		$this->assertErrorResponse( 'rest_changeset_invalid_uuid', $response, 404 );
@@ -178,7 +178,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	 */
 	public function test_get_item_list_context_with_permission() {
 		wp_set_current_user( self::$admin_id );
-		$request = new WP_REST_Request( 'GET', '/wp/v2/changesets' );
+		$request = new WP_REST_Request( 'GET', '/wp/v2/customize/changesets' );
 		$request->set_query_params( array(
 			'context' => 'edit',
 		) );
@@ -193,7 +193,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	 */
 	public function test_get_item_list_context_without_permission() {
 		wp_set_current_user( self::$subscriber_id );
-		$request = new WP_REST_Request( 'GET', '/wp/v2/changesets' );
+		$request = new WP_REST_Request( 'GET', '/wp/v2/customize/changesets' );
 		$request->set_query_params( array(
 			'context' => 'edit',
 		) );
@@ -210,7 +210,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$manager->save_changeset_post();
 
 		wp_set_current_user( self::$subscriber_id );
-		$request = new WP_REST_Request( 'GET', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$request = new WP_REST_Request( 'GET', sprintf( '/wp/v2/customize/changesets/%s', $manager->changeset_uuid() ) );
 		$request->set_query_params( array(
 			'context' => 'edit',
 		) );
@@ -225,7 +225,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	 * @covers WP_REST_Customize_Changesets_Controller::get_items()
 	 */
 	public function test_get_items() {
-		$request = new WP_REST_Request( 'GET', sprintf( '/wp/v2/changesets' ) );
+		$request = new WP_REST_Request( 'GET', sprintf( '/wp/v2/customize/changesets' ) );
 		$response = $this->server->dispatch( $request );
 
 		$manager1 = new WP_Customize_Manager();
@@ -271,7 +271,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 			),
 		) );
 
-		$request = new WP_REST_Request( 'GET', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$request = new WP_REST_Request( 'GET', sprintf( '/wp/v2/customize/changesets/%s', $manager->changeset_uuid() ) );
 		$response = $this->server->dispatch( $request );
 
 		$this->assertNotInstanceOf( 'WP_Error', $response );
@@ -319,7 +319,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$manager = new WP_Customize_Manager();
 		$manager->save_changeset_post();
 
-		$request = new WP_REST_Request( 'GET', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$request = new WP_REST_Request( 'GET', sprintf( '/wp/v2/customize/changesets/%s', $manager->changeset_uuid() ) );
 		$response = $this->server->dispatch( $request );
 		$changeset_data = $response->get_data();
 
@@ -346,7 +346,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	public function test_create_item_invalid_data() {
 		wp_set_current_user( self::$editor_id );
 
-		$request = new WP_REST_Request( 'POST', '/wp/v2/changesets' );
+		$request = new WP_REST_Request( 'POST', '/wp/v2/customize/changesets' );
 		$request->set_body_params( array(
 			'customize_changeset_data' => '[MALFORMED]',
 		) );
@@ -361,7 +361,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	public function test_create_item_as_editor() {
 		wp_set_current_user( self::$editor_id );
 
-		$request = new WP_REST_Request( 'POST', '/wp/v2/changesets' );
+		$request = new WP_REST_Request( 'POST', '/wp/v2/customize/changesets' );
 		$request->set_body_params( array(
 			'customize_changeset_data' => array(
 				'foo' => array(
@@ -386,7 +386,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	public function test_create_item_without_permission() {
 		wp_set_current_user( self::$subscriber_id );
 
-		$request = new WP_REST_Request( 'POST', '/wp/v2/changesets' );
+		$request = new WP_REST_Request( 'POST', '/wp/v2/customize/changesets' );
 		$request->set_body_params( array(
 			'title' => 'Title',
 		) );
@@ -401,7 +401,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	public function test_create_item_already_published() {
 		wp_set_current_user( self::$admin_id );
 
-		$request = new WP_REST_Request( 'POST', '/wp/v2/changesets' );
+		$request = new WP_REST_Request( 'POST', '/wp/v2/customize/changesets' );
 		$request->set_param( 'status', 'publish' );
 
 		$response = $this->server->dispatch( $request );
@@ -417,7 +417,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	public function test_create_item_invalid_status( $bad_status ) {
 		wp_set_current_user( self::$admin_id );
 
-		$request = new WP_REST_Request( 'POST', '/wp/v2/changesets' );
+		$request = new WP_REST_Request( 'POST', '/wp/v2/customize/changesets' );
 		$request->set_param( 'status', $bad_status );
 
 		$response = $this->server->dispatch( $request );
@@ -432,7 +432,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$user = new WP_User( self::$editor_id );
 		$user->remove_cap( 'edit_theme_options' );
 
-		$request = new WP_REST_Request( 'POST', '/wp/v2/changesets' );
+		$request = new WP_REST_Request( 'POST', '/wp/v2/customize/changesets' );
 		$request->set_body_params( array(
 			'customize_changeset_data' => array(
 				'title' => array(
@@ -451,7 +451,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	public function test_create_item_try_custom_slug() {
 		wp_set_current_user( self::$admin_id );
 
-		$request = new WP_REST_Request( 'POST', '/wp/v2/changesets' );
+		$request = new WP_REST_Request( 'POST', '/wp/v2/customize/changesets' );
 		$request->set_param( 'name', 'slug' );
 
 		$response = $this->server->dispatch( $request );
@@ -464,7 +464,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	public function test_create_item_with_existing_post_id() {
 		wp_set_current_user( self::$admin_id );
 
-		$request = new WP_REST_Request( 'POST', '/wp/v2/changesets' );
+		$request = new WP_REST_Request( 'POST', '/wp/v2/customize/changesets' );
 
 		$request->set_param( 'id', 1 );
 		$response = $this->server->dispatch( $request );
@@ -480,7 +480,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$menu_id = wp_create_nav_menu( 'menu' );
 		$menu_item_id = wp_update_nav_menu_item( $menu_id, 0 );
 
-		$request = new WP_REST_Request( 'POST', '/wp/v2/changesets' );
+		$request = new WP_REST_Request( 'POST', '/wp/v2/customize/changesets' );
 
 		$args = array(
 			'menu-item-object-id' => REST_TESTS_IMPOSSIBLY_HIGH_NUMBER,
@@ -541,7 +541,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		add_filter( 'rest_pre_update_changeset', array( $this, 'update_changeset_custom_callback' ), 10, 4 );
 
 		$title_after = 'Title after';
-		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/customize/changesets/%s', $manager->changeset_uuid() ) );
 		$request->set_param( 'title', $title_after );
 		$request->set_param( 'status', 'draft' );
 
@@ -587,7 +587,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		) );
 
 		$changed_value = 'changed_setting_value';
-		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/customize/changesets/%s', $manager->changeset_uuid() ) );
 		$request->set_body_params( array(
 			'customize_changeset_data' => array(
 				$setting_forbidden_id => array(
@@ -601,7 +601,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$response = $this->server->dispatch( $request );
 		$this->assertErrorResponse( 'rest_forbidden', $response, 403 );
 
-		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/customize/changesets/%s', $manager->changeset_uuid() ) );
 		$request->set_body_params( array(
 			$setting_allowed_id => array(
 				'value' => $changed_value,
@@ -627,7 +627,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$uuid = wp_generate_uuid4();
 		$bad_slug = 'slug-after';
 
-		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $uuid ) );
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/customize/changesets/%s', $uuid ) );
 		$request->set_body_params( array(
 			'slug' => $bad_slug,
 		) );
@@ -650,7 +650,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$bad_slug = 'slug-after';
 
-		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/customize/changesets/%s', $manager->changeset_uuid() ) );
 		$request->set_body_params( array(
 			'slug' => $bad_slug,
 		) );
@@ -668,7 +668,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$uuid = wp_generate_uuid4();
 
-		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $uuid ) );
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/customize/changesets/%s', $uuid ) );
 		$request->set_body_params( array(
 			'customize_changeset_data' => array(
 				'basic_option' => array(
@@ -696,7 +696,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$content_before = get_post( $changeset_post_id )->post_content;
 
-		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/customize/changesets/%s', $manager->changeset_uuid() ) );
 		$request->set_body_params( array(
 			'customize_changeset_data' => array(
 				'basic_option' => array(
@@ -728,7 +728,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$content_before = get_post( $changeset_post_id )->post_content;
 
-		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/customize/changesets/%s', $manager->changeset_uuid() ) );
 		$request->set_body_params( array(
 			'customize_changeset_data' => '[MALFORMED]',
 		) );
@@ -749,7 +749,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$uuid = wp_generate_uuid4();
 		$title = 'FooBarBaz';
 
-		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $uuid ) );
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/customize/changesets/%s', $uuid ) );
 		$request->set_body_params( array(
 			'title' => $title,
 		) );
@@ -778,7 +778,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 			'title' => $title_before,
 		) );
 
-		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/customize/changesets/%s', $manager->changeset_uuid() ) );
 		$request->set_body_params( array(
 			'title' => $title_after,
 		) );
@@ -803,7 +803,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$uuid = wp_generate_uuid4();
 
-		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $uuid ) );
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/customize/changesets/%s', $uuid ) );
 		$request->set_body_params( array(
 			'status' => $bad_status,
 		) );
@@ -829,7 +829,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$manager->save_changeset_post();
 		$status_before = get_post_status( $manager->changeset_post_id() );
 
-		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/customize/changesets/%s', $manager->changeset_uuid() ) );
 		$request->set_body_params( array(
 			'status' => $bad_status,
 		) );
@@ -864,7 +864,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$uuid = wp_generate_uuid4();
 
-		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $uuid ) );
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/customize/changesets/%s', $uuid ) );
 		$request->set_body_params( array(
 			'status' => $publish_status,
 		) );
@@ -891,7 +891,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$manager->save_changeset_post();
 		$status_before = get_post_status( $manager->changeset_post_id() );
 
-		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/customize/changesets/%s', $manager->changeset_uuid() ) );
 		$request->set_body_params( array(
 			'status' => $publish_status,
 		) );
@@ -933,7 +933,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$changeset_data_before = $manager->changeset_data();
 
-		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/customize/changesets/%s', $manager->changeset_uuid() ) );
 		$request->set_body_params( array(
 			'customize_changeset_data' => array(
 				'basic_option' => array(
@@ -966,7 +966,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$uuid = wp_generate_uuid4();
 		$date_gmt = date( 'Y-m-d H:i:s', ( time() + YEAR_IN_SECONDS ) );
 
-		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $uuid ) );
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/customize/changesets/%s', $uuid ) );
 		$request->set_body_params( array(
 			'date_gmt' => $date_gmt,
 			'status' => 'draft',
@@ -994,7 +994,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$date_before = get_post( $manager->changeset_post_id() )->post_date_gmt;
 		$date_after = date( 'Y-m-d H:i:s', ( strtotime( $date_before ) + YEAR_IN_SECONDS ) );
 
-		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/customize/changesets/%s', $manager->changeset_uuid() ) );
 		$request->set_body_params( array(
 			'date_gmt' => $date_after,
 			'status' => 'draft',
@@ -1024,7 +1024,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$status_after = 'draft';
 
-		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/customize/changesets/%s', $manager->changeset_uuid() ) );
 		$request->set_body_params( array(
 			'status' => $status_after,
 		) );
@@ -1051,7 +1051,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$status_after = 'future';
 
-		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/customize/changesets/%s', $manager->changeset_uuid() ) );
 		$request->set_body_params( array(
 			'status' => $status_after,
 		) );
@@ -1076,7 +1076,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 			'status' => 'future',
 		) );
 
-		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/customize/changesets/%s', $manager->changeset_uuid() ) );
 		$request->set_body_params( array(
 			'status' => 'publish',
 		) );
@@ -1098,7 +1098,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$uuid = wp_generate_uuid4();
 
-		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $uuid ) );
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/customize/changesets/%s', $uuid ) );
 		$request->set_body_params( array(
 			'date_gmt' => strtotime( '-1 week' ),
 		) );
@@ -1121,7 +1121,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$date_before = get_post( $manager->changeset_post_id() )->post_date_gmt;
 
-		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/customize/changesets/%s', $manager->changeset_uuid() ) );
 		$request->set_body_params( array(
 			'date_gmt' => strtotime( '-1 week' ),
 		) );
@@ -1144,7 +1144,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$status_before = get_post_status( $manager->changeset_post_id() );
 
-		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/customize/changesets/%s', $manager->changeset_uuid() ) );
 		$request->set_body_params( array(
 			'status' => 'future',
 		) );
@@ -1162,7 +1162,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$uuid = wp_generate_uuid4();
 
-		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $uuid ) );
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/customize/changesets/%s', $uuid ) );
 		$request->set_body_params( array(
 			'date_gmt' => strtotime( '+1 week' ),
 		) );
@@ -1186,7 +1186,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$status_before = get_post_type( $manager->changeset_post_id() );
 		$this->assertSame( 'auto-draft', $status_before );
 
-		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/customize/changesets/%s', $manager->changeset_uuid() ) );
 		$request->set_body_params( array(
 			'date_gmt' => strtotime( '+1 week' ),
 		) );
@@ -1204,7 +1204,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$uuid = wp_generate_uuid4();
 
-		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $uuid ) );
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/customize/changesets/%s', $uuid ) );
 		$request->set_body_params( array(
 			'date_gmt' => 'BAD DATE',
 		) );
@@ -1227,7 +1227,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$date_before = get_post( $manager->changeset_post_id() )->post_date_gmt;
 
-		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/customize/changesets/%s', $manager->changeset_uuid() ) );
 		$request->set_body_params( array(
 			'date_gmt' => 'BAD DATE',
 		) );
@@ -1250,7 +1250,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$manager = new WP_Customize_Manager();
 		$manager->save_changeset_post();
 
-		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/customize/changesets/%s', $manager->changeset_uuid() ) );
 		$request->set_body_params( array(
 			'status' => 'publish',
 		) );
@@ -1273,7 +1273,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		) );
 		$manager->save_changeset_post();
 
-		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $uuid_before ) );
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/customize/changesets/%s', $uuid_before ) );
 		$request->set_body_params( array(
 			'status' => 'publish',
 		) );
@@ -1301,7 +1301,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 			),
 		) );
 
-		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/customize/changesets/%s', $manager->changeset_uuid() ) );
 		$request->set_body_params( array(
 			'status' => 'publish',
 		) );
@@ -1319,7 +1319,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$bad_setting = rand_str();
 
-		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', wp_generate_uuid4() ) );
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/customize/changesets/%s', wp_generate_uuid4() ) );
 		$request->set_body_params( array(
 			'customize_changeset_data' => array(
 				$bad_setting => array(
@@ -1346,7 +1346,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$manager = new WP_Customize_Manager();
 
-		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/customize/changesets/%s', $manager->changeset_uuid() ) );
 		$request->set_body_params( array(
 			'customize_changeset_data' => array(
 				$illegal_setting => array(
@@ -1373,7 +1373,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$manager = new WP_Customize_Manager();
 
-		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/changesets/%s', $manager->changeset_uuid() ) );
+		$request = new WP_REST_Request( 'PUT', sprintf( '/wp/v2/customize/changesets/%s', $manager->changeset_uuid() ) );
 		$request->set_body_params( array(
 			'status' => 'draft',
 		) );
@@ -1406,7 +1406,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$this->assertSame( $changeset_id, $manager->find_changeset_post_id( $uuid ) );
 
-		$request = new WP_REST_Request( 'DELETE', sprintf( '/wp/v2/changesets/%s', $uuid ) );
+		$request = new WP_REST_Request( 'DELETE', sprintf( '/wp/v2/customize/changesets/%s', $uuid ) );
 		$request->set_param( 'force', false );
 		$response = $this->server->dispatch( $request );
 
@@ -1436,7 +1436,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$this->assertSame( $changeset_id, $manager->find_changeset_post_id( $uuid ) );
 
-		$request = new WP_REST_Request( 'DELETE', sprintf( '/wp/v2/changesets/%s', $uuid ) );
+		$request = new WP_REST_Request( 'DELETE', sprintf( '/wp/v2/customize/changesets/%s', $uuid ) );
 		$request->set_param( 'force', false );
 		$response = $this->server->dispatch( $request );
 
@@ -1462,7 +1462,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$this->assertSame( $changeset_id, $manager->find_changeset_post_id( $uuid ) );
 
-		$request = new WP_REST_Request( 'DELETE', sprintf( '/wp/v2/changesets/%s', $uuid ) );
+		$request = new WP_REST_Request( 'DELETE', sprintf( '/wp/v2/customize/changesets/%s', $uuid ) );
 		$request->set_param( 'force', true );
 		$response = $this->server->dispatch( $request );
 
@@ -1494,7 +1494,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$this->assertSame( $changeset_id, $manager->find_changeset_post_id( $uuid ) );
 
-		$request = new WP_REST_Request( 'DELETE', sprintf( '/wp/v2/changesets/%s', $uuid ) );
+		$request = new WP_REST_Request( 'DELETE', sprintf( '/wp/v2/customize/changesets/%s', $uuid ) );
 		$request->set_param( 'force', true );
 		$response = $this->server->dispatch( $request );
 
@@ -1518,7 +1518,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$manager = new WP_Customize_Manager();
 		$this->assertSame( $changeset_id, $manager->find_changeset_post_id( $uuid ) );
 
-		$request = new WP_REST_Request( 'DELETE', sprintf( '/wp/v2/changesets/%s', $uuid ) );
+		$request = new WP_REST_Request( 'DELETE', sprintf( '/wp/v2/customize/changesets/%s', $uuid ) );
 		$request->set_param( 'force', false );
 
 		$response = $this->server->dispatch( $request );
@@ -1543,7 +1543,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		wp_trash_post( $changeset_id );
 
-		$request = new WP_REST_Request( 'DELETE', sprintf( '/wp/v2/changesets/%s', $uuid ) );
+		$request = new WP_REST_Request( 'DELETE', sprintf( '/wp/v2/customize/changesets/%s', $uuid ) );
 		$response = $this->server->dispatch( $request );
 
 		$this->assertErrorResponse( 'rest_cannot_delete', $response, 403 );
@@ -1554,7 +1554,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	 */
 	public function test_delete_item_invalid_id() {
 		wp_set_current_user( self::$admin_id );
-		$request = new WP_REST_Request( 'DELETE', sprintf( '/wp/v2/changesets/%s', wp_generate_uuid4() ) );
+		$request = new WP_REST_Request( 'DELETE', sprintf( '/wp/v2/customize/changesets/%s', wp_generate_uuid4() ) );
 		$response = $this->server->dispatch( $request );
 		$this->assertErrorResponse( 'rest_post_invalid_id', $response, 404 );
 	}
@@ -1564,7 +1564,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	 */
 	public function test_delete_item_invalid_id_without_permission() {
 		wp_set_current_user( self::$subscriber_id );
-		$request = new WP_REST_Request( 'DELETE', sprintf( '/wp/v2/changesets/%s', wp_generate_uuid4() ) );
+		$request = new WP_REST_Request( 'DELETE', sprintf( '/wp/v2/customize/changesets/%s', wp_generate_uuid4() ) );
 		$response = $this->server->dispatch( $request );
 		$this->assertErrorResponse( 'rest_cannot_delete', $response, 403 );
 	}
