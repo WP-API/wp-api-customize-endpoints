@@ -105,6 +105,9 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	 */
 	public function get_item_schema() {
 
+		$status_enum = array_keys( get_post_stati( array(
+			'internal' => false,
+		) ) );
 		$schema = array(
 			'$schema'    => 'http://json-schema.org/schema#',
 			'title'      => 'customize_changeset',
@@ -147,7 +150,7 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 				'status'          => array(
 					'description' => __( 'A named status for the object.' ),
 					'type'        => 'string',
-					'enum'        => array_keys( get_post_stati( array( 'internal' => false ) ) ),
+					'enum'        => $status_enum,
 					'context'     => array( 'view', 'edit' ),
 				),
 				'title'           => array(
@@ -175,5 +178,70 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 		);
 
 		return $this->add_additional_fields_schema( $schema );
+	}
+
+	/**
+	 * Retrieves the query params for customize_changesets.
+	 *
+	 * @since 4.?.?
+	 * @access public
+	 *
+	 * @return array Collection parameters.
+	 */
+	public function get_collection_params() {
+		$query_params = parent::get_collection_params();
+
+		$query_params['context']['default'] = 'view';
+
+		$query_params['author'] = array(
+			'description'         => __( 'Limit result set to posts assigned to specific authors.' ),
+			'type'                => 'array',
+			'items'               => array(
+				'type'            => 'integer',
+			),
+			'default'             => array(),
+		);
+
+		$query_params['author_exclude'] = array(
+			'description'         => __( 'Ensure result set excludes posts assigned to specific authors.' ),
+			'type'                => 'array',
+			'items'               => array(
+				'type'            => 'integer',
+			),
+			'default'             => array(),
+		);
+
+		$query_params['slug'] = array(
+			'description'       => __( 'Limit result set to posts with one or more specific slugs.' ),
+			'type'              => 'array',
+			'items'             => array(
+				'type'          => 'string',
+			),
+			'sanitize_callback' => 'wp_parse_slug_list',
+		);
+
+		$query_params['status'] = array(
+			'default'           => 'publish',
+			'description'       => __( 'Limit result set to posts assigned one or more statuses.' ),
+			'type'              => 'array',
+			'items'             => array(
+				'enum'          => array_merge( array_keys( get_post_stati() ), array( 'any' ) ),
+				'type'          => 'string',
+			),
+			'sanitize_callback' => array( $this, 'sanitize_post_statuses' ),
+		);
+
+		/**
+		 * Filter collection parameters for the customize_changesets controller.
+		 *
+		 * This filter registers the collection parameter, but does not map the
+		 * collection parameter to an internal WP_Query parameter. Use the
+		 * `rest_{$this->post_type}_query` filter to set WP_Query parameters.
+		 *
+		 * @since 4.?.?
+		 *
+		 * @param array $query_params JSON Schema-formatted collection parameters.
+		 */
+		return apply_filters( 'rest_customize_changeset_collection_params', $query_params );
 	}
 }
