@@ -1074,7 +1074,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$request = new WP_REST_Request( 'PUT', sprintf( '/customize/v1/changesets/%s', $uuid ) );
 		$request->set_body_params( array(
-			'date_gmt' => ( strotime( $this_year ) + YEAR_IN_SECONDS ),
+			'date_gmt' => ( strtotime( $this_year ) + YEAR_IN_SECONDS ),
 			'status' => 'publish',
 		) );
 		$response = $this->server->dispatch( $request );
