@@ -1446,6 +1446,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 					'value' => 'Foo',
 				),
 			),
+			'status' => 'draft',
 		) );
 		$response = $this->server->dispatch( $request );
 
