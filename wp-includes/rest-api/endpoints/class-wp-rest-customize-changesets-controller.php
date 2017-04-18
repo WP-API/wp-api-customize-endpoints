@@ -17,6 +17,15 @@
 class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 
 	/**
+	 * Post type.
+	 *
+	 * @since 4.?.?
+	 * @access protected
+	 * @var string
+	 */
+	protected $post_type = 'customize_changeset';
+
+	/**
 	 * Constructor.
 	 *
 	 * @since 4.7.0
@@ -191,7 +200,14 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	 */
 	public function get_item_permissions_check( $request ) {
 
-		// @todo Check for permissions.
+		$post_type = get_post_type_object( $this->post_type );
+		$changeset_post = $this->get_customize_changeset_post( $request['uuid'] );
+
+		// @todo Check for update permissions.
+		if ( ! current_user_can( $post_type->cap->read_post, $changeset_post->ID ) ) {
+			return false;
+		}
+
 		return true;
 	}
 
@@ -205,12 +221,8 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
 	public function get_item( $request ) {
-		$args = array(
-			'changeset_uuid' => $request['uuid'],
-		);
-		$customize_manager = new WP_Customize_manager( $args );
-		$changeset_post = get_post( $customize_manager->changeset_post_id() );
 
+		$changeset_post = $this->get_customize_changeset_post( $request['uuid'] );
 		$data = $this->prepare_item_for_response( $changeset_post, $request );
 		$response = rest_ensure_response( $data );
 
@@ -294,16 +306,15 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	 */
 	public function prepare_item_for_response( $changeset_post, $request ) {
 
-		// Base fields for every post.
 		$data = array();
 
-		// $data['date'] = $this->prepare_date_response( $changeset_post->post_date_gmt, $changeset_post->post_date );
-		/*if ( '0000-00-00 00:00:00' === $post->post_date_gmt ) {
-			$post_date_gmt = get_gmt_from_date( $post->post_date );
+		$data['date'] = $this->prepare_date_response( $changeset_post->post_date_gmt, $changeset_post->post_date );
+		if ( '0000-00-00 00:00:00' === $changeset_post->post_date_gmt ) {
+			$post_date_gmt = get_gmt_from_date( $changeset_post->post_date );
 		} else {
-			$post_date_gmt = $post->post_date_gmt;
+			$post_date_gmt = $changeset_post->post_date_gmt;
 		}
-		$data['date_gmt'] = $this->prepare_date_response( $post_date_gmt );*/
+		$data['date_gmt'] = $this->prepare_date_response( $post_date_gmt );
 
 		$data['slug'] = $changeset_post->post_name;
 		$data['status'] = $changeset_post->post_status;
@@ -336,5 +347,45 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 		 * @param WP_REST_Request  $request  Request object.
 		 */
 		return apply_filters( 'rest_prepare_customize_changeset', $response, $changeset_post, $request );
+	}
+
+	/**
+	 * Checks the post_date_gmt or and prepare for single post output.
+	 *
+	 * @since 4.?.?
+	 * @access protected
+	 *
+	 * @param string      $date_gmt GMT publication time.
+	 * @param string|null $date     Optional. Local publication time. Default null.
+	 * @return string|null ISO8601/RFC3339 formatted datetime.
+	 */
+	protected function prepare_date_response( $date_gmt, $date = null ) {
+
+		// Use the date if passed.
+		if ( isset( $date ) ) {
+			return mysql_to_rfc3339( $date );
+		}
+
+		// Return null if $date_gmt is empty/zeros.
+		if ( '0000-00-00 00:00:00' === $date_gmt ) {
+			return null;
+		}
+
+		// Return the formatted datetime.
+		return mysql_to_rfc3339( $date_gmt );
+	}
+
+	/**
+	 * Get customize changeset post object.
+	 *
+	 * @param string $uuid Changeset UUID.
+	 * @return array|null|WP_Post Post object.
+	 */
+	protected function get_customize_changeset_post( $uuid ) {
+		$args = array(
+			'changeset_uuid' => $uuid,
+		);
+		$customize_manager = new WP_Customize_manager( $args );
+		return get_post( $customize_manager->changeset_post_id() );
 	}
 }
