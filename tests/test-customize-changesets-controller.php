@@ -397,16 +397,26 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	}
 
 	/**
-	 * Test creating an item with 'publish' status.
+	 * Test creating an item with 'publish' status. This should publish the changeset settings.
 	 */
 	public function test_create_item_already_published() {
 		wp_set_current_user( self::$admin_id );
 
 		$request = new WP_REST_Request( 'POST', '/customize/v1/changesets' );
 		$request->set_param( 'status', 'publish' );
+		$request->set_body_params( array(
+			'status' => 'publish',
+			'customize_changeset_data' => array(
+				'blogname' => array(
+					'value' => 'Blogname',
+				),
+			),
+		) );
 
 		$response = $this->server->dispatch( $request );
-		$this->assertErrorResponse( 'bad_customize_changeset_status', $response, 400 );
+		$this->assertEquals( 200, $response->get_status() );
+
+		$this->assertEquals( get_option( 'blogname' ), 'Blogname' );
 	}
 
 	/**
