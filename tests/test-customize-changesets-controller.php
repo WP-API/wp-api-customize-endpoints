@@ -146,7 +146,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$this->assertNotInstanceOf( 'WP_Error', $response );
 		$response = rest_ensure_response( $response );
 		$this->assertEquals( 200, $response->get_status() );
-		$this->assertEquals( 1, count( $response->get_data() ) );
+		$this->assertSame( $manager->changeset_uuid(), $response->get_data()['slug'] );
 	}
 
 	/**
@@ -171,7 +171,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$request = new WP_REST_Request( 'GET', sprintf( '/customize/v1/changesets/%s', REST_TESTS_IMPOSSIBLY_HIGH_NUMBER ) );
 		$response = $this->server->dispatch( $request );
 
-		$this->assertErrorResponse( 'rest_changeset_invalid_uuid', $response, 404 );
+		$this->assertErrorResponse( 'rest_no_route', $response, 404 );
 	}
 
 	/**
