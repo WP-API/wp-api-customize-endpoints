@@ -1064,9 +1064,34 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	}
 
 	/**
+	 * Test that creating a published changeset with update_item() sets the changeset date to now.
+	 */
+	public function test_update_item_create_published_changeset_resets_date() {
+		wp_set_current_user( self::$admin_id );
+
+		$uuid = wp_generate_uuid4();
+		$this_year = date( 'Y' );
+
+		$request = new WP_REST_Request( 'PUT', sprintf( '/customize/v1/changesets/%s', $uuid ) );
+		$request->set_body_params( array(
+			'date_gmt' => ( strtotime( $this_year ) + YEAR_IN_SECONDS ),
+			'status' => 'publish',
+		) );
+		$response = $this->server->dispatch( $request );
+
+		$this->assertSame( 200, $response->get_status() );
+
+		$data = $response->get_data();
+		$this->assertSame( $this_year, date( 'Y', strtotime( $data['date_gmt'] ) ) );
+
+		$manager = new WP_Customize_Manager();
+		$this->assertSame( $this_year, date( 'Y', strtotime( $manager->find_changeset_post_id( $uuid )->post_date_gmt ) ) );
+	}
+
+	/**
 	 * Test that publishing a future-dated changeset with update_item() resets the changeset date to now.
 	 */
-	public function test_update_item_publishing_resets_date() {
+	public function test_update_item_publish_existing_changeset_resets_date() {
 		wp_set_current_user( self::$admin_id );
 
 		$this_year = date( 'Y' );
@@ -1239,9 +1264,33 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	}
 
 	/**
+	 * Tests that creating a published changeset with update_item() returns a 'publish' status.
+	 */
+	public function test_update_item_create_status_is_publish_after_publish() {
+		if ( post_type_supports( 'customize_changeset', 'revisions' ) ) {
+			$this->markTestSkipped( 'Changesets are not trashed when revisions are enabled.' );
+		}
+
+		wp_set_current_user( self::$admin_id );
+
+		$uuid = wp_generate_uuid4();
+
+		$request = new WP_REST_Request( 'PUT', sprintf( '/customize/v1/changesets/%s', $uuid ) );
+		$request->set_body_params( array(
+			'status' => 'publish',
+		) );
+		$response = $this->server->dispatch( $request );
+
+		$this->assertSame( 200, $response->get_status() );
+
+		$data = $response->get_data();
+		$this->assertSame( 'publish', $data['status'] );
+	}
+
+	/**
 	 * Test that publishing a changeset with update_item() returns a 'publish' status.
 	 */
-	public function test_update_item_status_is_publish_after_publish() {
+	public function test_update_item_edit_status_is_publish_after_publish() {
 		if ( post_type_supports( 'customize_changeset', 'revisions' ) ) {
 			$this->markTestSkipped( 'Changesets are not trashed when revisions are enabled.' );
 		}
@@ -1262,9 +1311,28 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	}
 
 	/**
-	 * Test that publishing a changeset with update_item() returns a new changeset UUID.
+	 * Test that creating a published changeset with update_item() returns a new changeset UUID.
 	 */
-	public function test_update_item_has_next_changeset_id_after_publish() {
+	public function test_update_item_create_has_next_changeset_id_after_publish() {
+		wp_set_current_user( self::$admin_id );
+
+		$uuid_before = wp_generate_uuid4();
+
+		$request = new WP_REST_Request( 'PUT', sprintf( '/customize/v1/changesets/%s', $uuid_before ) );
+		$request->set_body_params( array(
+			'status' => 'publish',
+		) );
+		$response = $this->server->dispatch( $request );
+
+		$data = $response->get_data();
+		$this->assertTrue( isset( $data['next_changeset_uuid'] ) );
+		$this->assertNotSame( $data['next_changeset_uuid'], $uuid_before );
+	}
+
+	/**
+	 * Test that publishing an existing changeset with update_item() returns a new changeset UUID.
+	 */
+	public function test_update_item_edit_has_next_changeset_id_after_publish() {
 		wp_set_current_user( self::$admin_id );
 
 		$uuid_before = wp_generate_uuid4();
@@ -1286,12 +1354,36 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	}
 
 	/**
-	 * Test that publishing a changeset with update_item() updates a valid setting.
+	 * Test that creating a published changeset with update_item() updates a valid setting.
 	 */
-	public function test_update_item_with_bloginfo() {
+	public function test_update_item_create_with_bloginfo() {
 		wp_set_current_user( self::$admin_id );
 
-		$blogname_after = get_option( 'blogname' ) . ' Amended';
+		$uuid = wp_generate_uuid4();
+		$blogname_after = rand_str();
+
+		$request = new WP_REST_Request( 'PUT', sprintf( '/customize/v1/changesets/%s', $uuid ) );
+		$request->set_body_params( array(
+			'customize_changeset_data' => array(
+				'blogname' => array(
+					'value' => $blogname_after,
+				),
+			),
+			'status' => 'publish',
+		) );
+		$response = $this->server->dispatch( $request );
+
+		$this->assertSame( 200, $response->get_status() );
+		$this->assertSame( $blogname_after, get_option( 'blogname' ) );
+	}
+
+	/**
+	 * Test that publishing a changeset with update_item() updates a valid setting.
+	 */
+	public function test_update_item_edit_with_bloginfo() {
+		wp_set_current_user( self::$admin_id );
+
+		$blogname_after = rand_str();
 
 		$manager = new WP_Customize_Manager();
 		$manager->save_changeset_post( array(
@@ -1337,23 +1429,25 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	}
 
 	/**
-	 * Test that using update_item() to transactionally update a changeset fails when settings are invalid.
+	 * Test that using update_item() to transactionally insert a changeset fails when settings are invalid.
 	 */
-	public function test_update_item_transaction_fail_setting_validities() {
+	public function test_update_item_insert_transaction_fail_setting_validities() {
 		wp_set_current_user( self::$admin_id );
+
+		$uuid = wp_generate_uuid4();
 
 		$illegal_setting = 'foo_illegal';
 		add_filter( "customize_validate_{$illegal_setting}", array( $this, '__return_error_illegal' ) );
 
-		$manager = new WP_Customize_Manager();
-
-		$request = new WP_REST_Request( 'PUT', sprintf( '/customize/v1/changesets/%s', $manager->changeset_uuid() ) );
+		$request = new WP_REST_Request( 'PUT', sprintf( '/customize/v1/changesets/%s', $uuid ) );
 		$request->set_body_params( array(
 			'customize_changeset_data' => array(
+				'blogname' => rand_str(),
 				$illegal_setting => array(
 					'value' => 'Foo',
 				),
 			),
+			'status' => 'draft',
 		) );
 		$response = $this->server->dispatch( $request );
 
@@ -1362,19 +1456,64 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$error_data = $response->as_error()->get_error_data();
 		$illegal_code = $this->__return_error_illegal()->get_error_code();
 		$this->assertNotEmpty( $error_data['setting_validities'][ $illegal_setting ][ $illegal_code ] );
+
+		$manager = new WP_Customize_Manager();
+		$this->assertEmpty( $manager->find_changeset_post_id( $uuid ) );
 	}
 
 	/**
-	 * Test that update_item() reports errors inserting or updating a changeset.
+	 * Test that using update_item() to transactionally update a changeset fails when settings are invalid.
 	 */
-	public function test_update_item_changeset_post_save_failure() {
+	public function test_update_item_update_transaction_fail_setting_validities() {
+		wp_set_current_user( self::$admin_id );
+
+		$blogname_before = rand_str();
+
+		$manager = new WP_Customize_Manager();
+		$manager->save_changeset_post( array(
+			'data' => array(
+				'blogname' => array(
+					'value' => $blogname_before,
+				),
+			),
+		) );
+
+		$illegal_setting = 'foo_illegal';
+		add_filter( "customize_validate_{$illegal_setting}", array( $this, '__return_error_illegal' ) );
+
+		$request = new WP_REST_Request( 'PUT', sprintf( '/customize/v1/changesets/%s', $manager->changeset_uuid() ) );
+		$request->set_body_params( array(
+			'customize_changeset_data' => array(
+				'blogname' => rand_str(),
+				$illegal_setting => array(
+					'value' => 'Foo',
+				),
+			),
+			'status' => 'draft',
+		) );
+		$response = $this->server->dispatch( $request );
+
+		$this->assertErrorResponse( 'transaction_fail', $response );
+
+		$error_data = $response->as_error()->get_error_data();
+		$illegal_code = $this->__return_error_illegal()->get_error_code();
+		$this->assertNotEmpty( $error_data['setting_validities'][ $illegal_setting ][ $illegal_code ] );
+
+		$data = $manager->get_changeset_post_data( $manager->changeset_post_id() );
+		$this->assertSame( $blogname_before, $data['blogname']['value'] );
+	}
+
+	/**
+	 * Test that update_item() reports errors inserting a changeset.
+	 */
+	public function test_update_item_insert_changeset_post_save_failure() {
 		wp_set_current_user( self::$admin_id );
 
 		add_filter( 'wp_insert_post_empty_content', '__return_true' );
 
-		$manager = new WP_Customize_Manager();
+		$uuid = wp_generate_uuid4();
 
-		$request = new WP_REST_Request( 'PUT', sprintf( '/customize/v1/changesets/%s', $manager->changeset_uuid() ) );
+		$request = new WP_REST_Request( 'PUT', sprintf( '/customize/v1/changesets/%s', $uuid ) );
 		$request->set_body_params( array(
 			'status' => 'draft',
 		) );
@@ -1386,6 +1525,40 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$error_data = $response->as_error()->get_error_data();
 		$this->assertSame( 'empty_content', $error_data[ $error_code ][ $error_code ] );
+
+		$manager = new WP_Customize_Manager();
+		$this->assertEmpty( $manager->find_changeset_post_id( $uuid ) );
+	}
+
+	/**
+	 * Test that update_item() reports errors updating a changeset.
+	 */
+	public function test_update_item_update_changeset_post_save_failure() {
+		wp_set_current_user( self::$admin_id );
+
+		add_filter( 'wp_insert_post_empty_content', '__return_true' );
+
+		$manager = new WP_Customize_Manager();
+		$manager->save_changeset_post();
+
+		$request = new WP_REST_Request( 'PUT', sprintf( '/customize/v1/changesets/%s', $manager->changeset_uuid() ) );
+		$params = array(
+			'date_gmt' => strtotime( '+1 week' ),
+			'status' => 'draft',
+		);
+		$request->set_body_params( $params );
+		$response = $this->server->dispatch( $request );
+
+		$error_code = 'changeset_post_save_failure';
+
+		$this->assertErrorResponse( $error_code, $response );
+
+		$error_data = $response->as_error()->get_error_data();
+		$this->assertSame( 'empty_content', $error_data[ $error_code ][ $error_code ] );
+
+		$post = get_post( $manager->changeset_post_id() );
+		$this->assertNotSame( get_post_status( $post ), $params['status'] );
+		$this->assertLessThan( $params['date_gmt'], strtotime( $post->post_date_gmt ) );
 	}
 
 	/**
