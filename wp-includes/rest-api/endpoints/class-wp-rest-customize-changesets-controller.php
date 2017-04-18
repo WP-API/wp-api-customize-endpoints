@@ -181,6 +181,43 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	}
 
 	/**
+	 * Checks if a given request has access to read a changeset.
+	 *
+	 * @since 4.?.?
+	 * @access public
+	 *
+	 * @param WP_REST_Request $request Full details about the request.
+	 * @return bool|WP_Error True if the request has read access for the item, WP_Error object otherwise.
+	 */
+	public function get_item_permissions_check( $request ) {
+
+		// @todo Check for permissions.
+		return true;
+	}
+
+	/**
+	 * Retrieves a single customize_changeset.
+	 *
+	 * @since 4.?.?
+	 * @access public
+	 *
+	 * @param WP_REST_Request $request Full details about the request.
+	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
+	 */
+	public function get_item( $request ) {
+		$args = array(
+			'changeset_uuid' => $request['uuid'],
+		);
+		$customize_manager = new WP_Customize_manager( $args );
+		$changeset_post = get_post( $customize_manager->changeset_post_id() );
+
+		$data = $this->prepare_item_for_response( $changeset_post, $request );
+		$response = rest_ensure_response( $data );
+
+		return $response;
+	}
+
+	/**
 	 * Retrieves the query params for customize_changesets.
 	 *
 	 * @since 4.?.?
@@ -243,5 +280,61 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 		 * @param array $query_params JSON Schema-formatted collection parameters.
 		 */
 		return apply_filters( 'rest_customize_changeset_collection_params', $query_params );
+	}
+
+	/**
+	 * Prepares a single customize changeset post output for response.
+	 *
+	 * @since 4.7.0
+	 * @access public
+	 *
+	 * @param WP_Post         $changeset_post    Customize changeset object.
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response Response object.
+	 */
+	public function prepare_item_for_response( $changeset_post, $request ) {
+
+		// Base fields for every post.
+		$data = array();
+
+		// $data['date'] = $this->prepare_date_response( $changeset_post->post_date_gmt, $changeset_post->post_date );
+		/*if ( '0000-00-00 00:00:00' === $post->post_date_gmt ) {
+			$post_date_gmt = get_gmt_from_date( $post->post_date );
+		} else {
+			$post_date_gmt = $post->post_date_gmt;
+		}
+		$data['date_gmt'] = $this->prepare_date_response( $post_date_gmt );*/
+
+		$data['slug'] = $changeset_post->post_name;
+		$data['status'] = $changeset_post->post_status;
+
+		add_filter( 'protected_title_format', array( $this, 'protected_title_format' ) );
+		$data['title'] = array(
+			'raw'      => $changeset_post->post_title,
+			'rendered' => get_the_title( $changeset_post->ID ),
+		);
+		remove_filter( 'protected_title_format', array( $this, 'protected_title_format' ) );
+
+		$data['settings'] = $changeset_post->post_content;
+
+		$data['author'] = (int) $changeset_post->post_author;
+
+		$context = ! empty( $request['context'] ) ? $request['context'] : 'view';
+		$data    = $this->add_additional_fields_to_object( $data, $request );
+		$data    = $this->filter_response_by_context( $data, $context );
+
+		// Wrap the data in a response object.
+		$response = rest_ensure_response( $data );
+
+		/**
+		 * Filters the customize changeset data for a response.
+		 *
+		 * @since 4.?.?
+		 *
+		 * @param WP_REST_Response $response The response object.
+		 * @param WP_Post          $post     Customize Changeset Post object.
+		 * @param WP_REST_Request  $request  Request object.
+		 */
+		return apply_filters( 'rest_prepare_customize_changeset', $response, $changeset_post, $request );
 	}
 }
