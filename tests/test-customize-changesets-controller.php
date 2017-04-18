@@ -137,6 +137,8 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	 * @covers WP_REST_Customize_Changesets_Controller::get_item()
 	 */
 	public function test_get_item() {
+		wp_set_current_user( self::$admin_id );
+
 		$manager = new WP_Customize_Manager();
 		$manager->save_changeset_post();
 
