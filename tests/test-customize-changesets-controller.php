@@ -202,7 +202,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		) );
 		$response = $this->server->dispatch( $request );
 
-		$this->assertErrorResponse( 'rest_forbidden_context', $response, 401 );
+		$this->assertErrorResponse( 'rest_forbidden_context', $response, 403 );
 	}
 
 	/**
@@ -219,7 +219,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		) );
 		$response = $this->server->dispatch( $request );
 
-		$this->assertErrorResponse( 'rest_forbidden_context', $response, 401 );
+		$this->assertErrorResponse( 'rest_forbidden_context', $response, 403 );
 	}
 
 	/**
@@ -281,7 +281,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$response = rest_ensure_response( $response );
 
 		$changeset_data = $response->get_data();
-		$changeset_settings = json_decode( $changeset_data[0]['post_content'], true );
+		$changeset_settings = json_decode( $changeset_data['post_content'], true );
 
 		$this->assertArrayHasKey( $setting_allowed_id, $changeset_settings );
 		$this->assertFalse( isset( $changeset_settings[ $setting_forbidden_id ] ) );
@@ -290,11 +290,10 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	/**
 	 * Filter for GET request.
 	 *
-	 * @param object $changeset_post WP_Post.
-	 * @param array  $changeset_data Changed data (post_content).
+	 * @param object $response Rest response.
 	 * @return object mixed Filtered data.
 	 */
-	public function get_changeset_custom_callback( $changeset_post, $changeset_data ) {
+	public function get_changeset_custom_callback( $response ) {
 
 		$changeset_data = array(
 			'foo' => array(
@@ -306,9 +305,9 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 			$json_options |= JSON_UNESCAPED_SLASHES;
 		}
 		$json_options |= JSON_PRETTY_PRINT;
-		$changeset_post->post_content = wp_json_encode( $changeset_data, $json_options );
+		$response->data['settings'] = wp_json_encode( $changeset_data, $json_options );
 
-		return $changeset_post;
+		return $response;
 	}
 
 	/**
@@ -317,7 +316,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	public function test_get_item_with_filter() {
 		wp_set_current_user( self::$admin_id );
 
-		add_filter( 'rest_pre_get_changeset', array( $this, 'get_changeset_custom_callback' ), 10, 3 );
+		add_filter( 'rest_prepare_customize_changeset', array( $this, 'get_changeset_custom_callback' ), 10, 1 );
 
 		$manager = new WP_Customize_Manager();
 		$manager->save_changeset_post();
@@ -326,7 +325,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$response = $this->server->dispatch( $request );
 		$changeset_data = $response->get_data();
 
-		$changeset_settings = json_decode( $changeset_data[0]['post_content'], true );
+		$changeset_settings = json_decode( $changeset_data['settings'], true );
 
 		$this->assertArrayHasKey( 'foo', $changeset_settings );
 		$this->assertSame( $changeset_settings['foo']['value'], 'bar' );
@@ -379,7 +378,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$this->assertEquals( 200, $response->get_status() );
 		$this->assertEquals( 'Title', $data['title'] );
 
-		$changeset_settings = json_decode( $data[0]['post_content'], true );
+		$changeset_settings = json_decode( $data['settings'], true );
 		$this->assertSame( 'bar', $changeset_settings['foo']['value'] );
 	}
 
@@ -469,20 +468,6 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$response = $this->server->dispatch( $request );
 		$this->assertErrorResponse( 'invalid_customize_changeset_data', $response, 400 );
-	}
-
-	/**
-	 * Test creating an item with already existing post ID.
-	 */
-	public function test_create_item_with_existing_post_id() {
-		wp_set_current_user( self::$admin_id );
-
-		$request = new WP_REST_Request( 'POST', '/customize/v1/changesets' );
-
-		$request->set_param( 'id', 1 );
-		$response = $this->server->dispatch( $request );
-
-		$this->assertErrorResponse( 'rest_post_exists', $response, 400 );
 	}
 
 	/**
@@ -626,7 +611,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$response = rest_ensure_response( $response );
 
 		$changeset_data = $response->get_data();
-		$changeset_settings = json_decode( $changeset_data[0]['post_content'], true );
+		$changeset_settings = json_decode( $changeset_data['settings'], true );
 
 		$this->assertSame( 'setting_value', $changeset_settings[ $setting_allowed_id ]['value'] );
 	}
