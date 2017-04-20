@@ -222,20 +222,24 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$this->assertErrorResponse( 'rest_forbidden_context', $response, 403 );
 	}
 
+	// @todo get items by author and other query params.
+
 	/**
 	 * Test get_items.
 	 *
 	 * @covers WP_REST_Customize_Changesets_Controller::get_items()
 	 */
 	public function test_get_items() {
-		$request = new WP_REST_Request( 'GET', sprintf( '/customize/v1/changesets' ) );
-		$response = $this->server->dispatch( $request );
+		wp_set_current_user( self::$admin_id );
 
 		$manager1 = new WP_Customize_Manager();
 		$manager1->save_changeset_post();
 
 		$manager2 = new WP_Customize_Manager();
 		$manager2->save_changeset_post();
+
+		$request = new WP_REST_Request( 'GET', sprintf( '/customize/v1/changesets' ) );
+		$response = $this->server->dispatch( $request );
 
 		$this->assertNotInstanceOf( 'WP_Error', $response );
 		$response = rest_ensure_response( $response );
@@ -251,16 +255,16 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$setting_allowed_id = 'allowed_setting';
 		$setting_allowed = new WP_Customize_Setting( $manager, $setting_allowed_id );
 		$result_setting1 = $manager->add_setting( $setting_allowed );
-		$result_setting1->capability = 'editor_can_see';
+		$result_setting1->capability = 'admin_can_see';
 
 		$setting_forbidden_id = 'forbidden_setting';
 		$setting_forbidden = new WP_Customize_Setting( $manager, $setting_forbidden_id );
 		$result_setting2 = $manager->add_setting( $setting_forbidden );
-		$result_setting2->capability = 'editor_can_not_see';
+		$result_setting2->capability = 'admin_can_not_see';
 
-		wp_set_current_user( self::$editor_id );
-		$user = new WP_User( self::$editor_id );
-		$user->add_cap( 'editor_can_see' );
+		wp_set_current_user( self::$admin_id );
+		$user = new WP_User( self::$admin_id );
+		$user->add_cap( 'admin_can_see' );
 
 		$manager = new WP_Customize_Manager();
 		$manager->save_changeset_post( array(
@@ -281,7 +285,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$response = rest_ensure_response( $response );
 
 		$changeset_data = $response->get_data();
-		$changeset_settings = json_decode( $changeset_data['post_content'], true );
+		$changeset_settings = json_decode( $changeset_data['settings'], true );
 
 		$this->assertArrayHasKey( $setting_allowed_id, $changeset_settings );
 		$this->assertFalse( isset( $changeset_settings[ $setting_forbidden_id ] ) );
