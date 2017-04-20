@@ -480,7 +480,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	}
 
 	/**
-	 * Test that choosing a custom slug is frobidden.
+	 * Test that choosing a custom slug is forbidden.
 	 */
 	public function test_create_item_try_custom_slug() {
 		wp_set_current_user( self::$admin_id );
@@ -1096,7 +1096,10 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$this->assertSame( $this_year, date( 'Y', strtotime( $data['date_gmt'] ) ) );
 
 		$manager = new WP_Customize_Manager();
-		$this->assertSame( $this_year, date( 'Y', strtotime( $manager->find_changeset_post_id( $uuid )->post_date_gmt ) ) );
+		$post_id = $manager->find_changeset_post_id( $uuid );
+		$this->assertInternalType( 'int', $post_id );
+		$changeset_post = get_post( $post_id );
+		$this->assertSame( $this_year, date( 'Y', strtotime( $changeset_post->post_date_gmt ) ) );
 	}
 
 	/**
