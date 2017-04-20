@@ -210,7 +210,7 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	 */
 	public function get_item_permissions_check( $request ) {
 
-		$post_type = get_post_type_object( $this->post_type );
+		$post_type_obj = get_post_type_object( $this->post_type );
 		$changeset_post = $this->get_customize_changeset_post( $request['uuid'] );
 		$data = array();
 		if ( isset( $request['customize_changeset_data'] ) ) {
@@ -223,11 +223,18 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 			) );
 		}
 
-		if ( ! current_user_can( $post_type->cap->read_post, $changeset_post->ID ) ) {
-			return false;
-		}
+		return $this->check_read_permission( $post_type_obj, $changeset_post );
+	}
 
-		return true;
+	/**
+	 * Check if current user can read the changeset.
+	 *
+	 * @param object $post_type_obj Post type object.
+	 * @param object $changeset_post Changeset post object.
+	 * @return bool If has read permissions.
+	 */
+	protected function check_read_permission( $post_type_obj, $changeset_post ) {
+		return current_user_can( $post_type_obj->cap->read_post, $changeset_post->ID );
 	}
 
 	/**
@@ -273,6 +280,183 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	}
 
 	/**
+	 * Checks if a given request has access to read changeset posts.
+	 *
+	 * @since 4.?.?
+	 * @access public
+	 *
+	 * @param  WP_REST_Request $request Full details about the request.
+	 * @return true|WP_Error True if the request has read access, WP_Error object otherwise.
+	 */
+	public function get_items_permissions_check( $request ) {
+
+		$post_type = get_post_type_object( $this->post_type );
+
+		if ( 'edit' === $request['context'] && ! current_user_can( $post_type->cap->edit_posts ) ) {
+			return new WP_Error( 'rest_forbidden_context', __( 'Sorry, you are not allowed to edit posts in this post type.' ), array(
+				'status' => rest_authorization_required_code(),
+			) );
+		}
+
+		return current_user_can( $post_type->cap->read_post );
+	}
+
+	/**
+	 * Retrieves multiple customize changesets.
+	 *
+	 * @since 4.?.?
+	 * @access public
+	 *
+	 * @param WP_REST_Request $request Full details about the request.
+	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
+	 */
+	public function get_items( $request ) {
+
+		// Ensure a search string is set in case the orderby is set to 'relevance'.
+		if ( ! empty( $request['orderby'] ) && 'relevance' === $request['orderby'] && empty( $request['search'] ) ) {
+			return new WP_Error( 'rest_no_search_term_defined', __( 'You need to define a search term to order by relevance.' ), array(
+				'status' => 400,
+			) );
+		}
+
+		$registered = $this->get_collection_params();
+
+		$parameter_mappings = array(
+			'author'         => 'author__in',
+			'author_exclude' => 'author__not_in',
+			'offset'         => 'offset',
+			'order'          => 'order',
+			'orderby'        => 'orderby',
+			'page'           => 'paged',
+			'search'         => 's',
+			'status'         => 'post_status',
+		);
+
+		foreach ( $parameter_mappings as $api_param => $wp_param ) {
+			if ( isset( $registered[ $api_param ], $request[ $api_param ] ) ) {
+				$args[ $wp_param ] = $request[ $api_param ];
+			}
+		}
+
+		// Ensure per_page parameter overrides any provided posts_per_page filter.
+		if ( isset( $registered['per_page'] ) ) {
+			$args['posts_per_page'] = $request['per_page'];
+		}
+
+		$args['post_type'] = $this->post_type;
+
+		/**
+		 * Filters the query arguments for a request.
+		 *
+		 * Enables adding extra arguments or setting defaults for a post collection request.
+		 *
+		 * @since 4.?.?
+		 *
+		 * @link https://developer.wordpress.org/reference/classes/wp_query/
+		 *
+		 * @param array           $args    Key value array of query var to query value.
+		 * @param WP_REST_Request $request The request used.
+		 */
+		$args = apply_filters( "rest_{$this->post_type}_query", $args, $request );
+		$query_args = $this->prepare_items_query( $args, $request );
+
+		$changesets_query  = new WP_Query();
+		$query_result = $changesets_query->query( $query_args );
+
+		$changesets = array();
+		foreach ( $query_result as $changeset_post ) {
+			if ( ! $this->check_read_permission( get_post_type_object( $this->post_type ), $changeset_post ) ) {
+				continue;
+			}
+
+			$data         = $this->prepare_item_for_response( $changeset_post, $request );
+			$changesets[] = $this->prepare_response_for_collection( $data );
+		}
+
+		$page = (int) $query_args['paged'];
+		$total_posts = $changesets_query->found_posts;
+
+		if ( $total_posts < 1 ) {
+			// Out-of-bounds, run the query again without LIMIT for total count.
+			unset( $query_args['paged'] );
+
+			$count_query = new WP_Query();
+			$count_query->query( $query_args );
+			$total_posts = $count_query->found_posts;
+		}
+
+		$max_pages = ceil( $total_posts / (int) $changesets_query->query_vars['posts_per_page'] );
+
+		if ( $page > $max_pages && $total_posts > 0 ) {
+			return new WP_Error( 'rest_post_invalid_page_number', __( 'The page number requested is larger than the number of pages available.' ), array(
+				'status' => 400,
+			) );
+		}
+
+		$response  = rest_ensure_response( $changesets );
+
+		$response->header( 'X-WP-Total', (int) $total_posts );
+		$response->header( 'X-WP-TotalPages', (int) $max_pages );
+
+		$request_params = $request->get_query_params();
+		$base = add_query_arg( $request_params, rest_url( sprintf( '%s/%s', $this->namespace, $this->rest_base ) ) );
+
+		if ( $page > 1 ) {
+			$prev_page = $page - 1;
+
+			if ( $prev_page > $max_pages ) {
+				$prev_page = $max_pages;
+			}
+
+			$prev_link = add_query_arg( 'page', $prev_page, $base );
+			$response->link_header( 'prev', $prev_link );
+		}
+		if ( $max_pages > $page ) {
+			$next_page = $page + 1;
+			$next_link = add_query_arg( 'page', $next_page, $base );
+
+			$response->link_header( 'next', $next_link );
+		}
+
+		return $response;
+	}
+
+	/**
+	 * Determines the allowed query_vars for a get_items() response and prepares
+	 * them for WP_Query.
+	 *
+	 * @since 4.?.?
+	 * @access protected
+	 *
+	 * @param array           $prepared_args Optional. Prepared WP_Query arguments. Default empty array.
+	 * @param WP_REST_Request $request       Optional. Full details about the request.
+	 * @return array Items query arguments.
+	 */
+	protected function prepare_items_query( $prepared_args = array(), $request = null ) {
+		$query_args = array();
+
+		foreach ( $prepared_args as $key => $value ) {
+			$query_args[ $key ] = $value;
+		}
+
+		$query_args['ignore_sticky_posts'] = true;
+
+		// Map to proper WP_Query orderby param.
+		if ( isset( $query_args['orderby'] ) && isset( $request['orderby'] ) ) {
+			$orderby_mappings = array(
+				'id'   => 'ID',
+				'slug' => 'post_name',
+			);
+
+			if ( isset( $orderby_mappings[ $request['orderby'] ] ) ) {
+				$query_args['orderby'] = $orderby_mappings[ $request['orderby'] ];
+			}
+		}
+
+		return $query_args;
+	}
+
+	/**
 	 * Retrieves the query params for customize_changesets.
 	 *
 	 * @since 4.?.?
@@ -303,15 +487,6 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 			'default'             => array(),
 		);
 
-		$query_params['slug'] = array(
-			'description'       => __( 'Limit result set to posts with one or more specific slugs.' ),
-			'type'              => 'array',
-			'items'             => array(
-				'type'          => 'string',
-			),
-			'sanitize_callback' => 'wp_parse_slug_list',
-		);
-
 		$query_params['status'] = array(
 			'default'           => 'publish',
 			'description'       => __( 'Limit result set to posts assigned one or more statuses.' ),
@@ -321,20 +496,45 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 				'type'          => 'string',
 			),
 			'sanitize_callback' => array( $this, 'sanitize_post_statuses' ),
+			'default'           => array( 'auto-draft' ),
+		);
+
+		$query_params['offset'] = array(
+			'description'        => __( 'Offset the result set by a specific number of items.' ),
+			'type'               => 'integer',
+		);
+
+		$query_params['order'] = array(
+			'description'        => __( 'Order sort attribute ascending or descending.' ),
+			'type'               => 'string',
+			'default'            => 'desc',
+			'enum'               => array( 'asc', 'desc' ),
+		);
+
+		$query_params['orderby'] = array(
+			'description'        => __( 'Sort collection by object attribute.' ),
+			'type'               => 'string',
+			'default'            => 'date',
+			'enum'               => array(
+				'date',
+				'relevance',
+				'id',
+				'title',
+				'slug',
+			),
 		);
 
 		/**
 		 * Filter collection parameters for the customize_changesets controller.
 		 *
 		 * This filter registers the collection parameter, but does not map the
-		 * collection parameter to an internal WP_Query parameter. Use the
-		 * `rest_{$this->post_type}_query` filter to set WP_Query parameters.
+		 * collection parameter to an internal WP_Query parameter.
 		 *
 		 * @since 4.?.?
 		 *
 		 * @param array $query_params JSON Schema-formatted collection parameters.
 		 */
-		return apply_filters( 'rest_customize_changeset_collection_params', $query_params );
+		return apply_filters( "rest_{$this->post_type}_collection_params", $query_params );
 	}
 
 	/**
@@ -430,5 +630,44 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 		);
 		$customize_manager = new WP_Customize_manager( $args );
 		return get_post( $customize_manager->changeset_post_id() );
+	}
+
+	/**
+	 * Sanitizes and validates the list of post statuses, including whether the
+	 * user can query private statuses.
+	 *
+	 * @since 4.?.?
+	 * @access public
+	 *
+	 * @param  string|array    $statuses  One or more post statuses.
+	 * @param  WP_REST_Request $request   Full details about the request.
+	 * @param  string          $parameter Additional parameter to pass to validation.
+	 * @return array|WP_Error A list of valid statuses, otherwise WP_Error object.
+	 */
+	public function sanitize_post_statuses( $statuses, $request, $parameter ) {
+		$statuses = wp_parse_slug_list( $statuses );
+
+		$default_status = 'auto-draft';
+
+		foreach ( $statuses as $status ) {
+			if ( $status === $default_status ) {
+				continue;
+			}
+
+			$post_type_obj = get_post_type_object( $this->post_type );
+
+			if ( current_user_can( $post_type_obj->cap->edit_posts ) ) {
+				$result = rest_validate_request_arg( $status, $request, $parameter );
+				if ( is_wp_error( $result ) ) {
+					return $result;
+				}
+			} else {
+				return new WP_Error( 'rest_forbidden_status', __( 'Status is forbidden.' ), array(
+					'status' => rest_authorization_required_code(),
+				) );
+			}
+		}
+
+		return $statuses;
 	}
 }
