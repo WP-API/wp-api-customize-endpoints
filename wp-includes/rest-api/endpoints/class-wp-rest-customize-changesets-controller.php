@@ -569,7 +569,18 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 		);
 		remove_filter( 'protected_title_format', array( $this, 'protected_title_format' ) );
 
-		$data['settings'] = $changeset_post->post_content;
+		$raw_settings = json_decode( $changeset_post->post_content, true );
+		$settings = array();
+
+		foreach ( $raw_settings as $setting_id => $params ) {
+			$setting = $this->manager->get_setting( $setting_id );
+			if ( ! $setting->check_capabilities() ) {
+				continue;
+			}
+			$settings[ $setting_id ] = $params['value'];
+		}
+
+		$data['settings'] = wp_json_encode( $settings );
 
 		$data['author'] = (int) $changeset_post->post_author;
 
