@@ -248,27 +248,30 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	}
 
 	/**
+	 * Add custom settings for testing.
+	 *
+	 * @param object $wp_customize WP Customize Manager.
+	 */
+	public function custom_settings_customze_register( $wp_customize ) {
+		$wp_customize->add_setting( 'allowed_setting' );
+		$wp_customize->add_setting( 'forbidden_setting', array(
+			'capability' => 'do_not_allow',
+		) );
+	}
+
+	/**
 	 * Test the case when user doesn't have permissions for some of the settings.
 	 */
 	public function test_get_item_without_permissions_to_some_settings() {
-		$manager = new WP_Customize_Manager();
-		$setting_allowed_id = 'allowed_setting';
-		$setting_allowed = new WP_Customize_Setting( $manager, $setting_allowed_id );
-		$result_setting1 = $manager->add_setting( $setting_allowed );
-		$result_setting1->capability = 'admin_can_see';
-
-		$setting_forbidden_id = 'forbidden_setting';
-		$setting_forbidden = new WP_Customize_Setting( $manager, $setting_forbidden_id );
-		$result_setting2 = $manager->add_setting( $setting_forbidden );
-		$result_setting2->capability = 'admin_can_not_see';
-
 		wp_set_current_user( self::$admin_id );
-		$user = new WP_User( self::$admin_id );
-		$user->add_cap( 'admin_can_see' );
+
+		$setting_allowed_id = 'allowed_setting';
+		$setting_forbidden_id = 'forbidden_setting';
 
 		$manager = new WP_Customize_Manager();
 		$manager->save_changeset_post( array(
-			'customize_changeset_data' => array(
+			'status' => 'auto-draft',
+			'data' => array(
 				$setting_allowed_id => array(
 					'value' => 'Foo',
 				),
@@ -278,6 +281,8 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 			),
 		) );
 
+		add_action( 'customize_register', array( $this, 'custom_settings_customize_register' ) );
+
 		$request = new WP_REST_Request( 'GET', sprintf( '/customize/v1/changesets/%s', $manager->changeset_uuid() ) );
 		$response = $this->server->dispatch( $request );
 
@@ -285,10 +290,13 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$response = rest_ensure_response( $response );
 
 		$changeset_data = $response->get_data();
+		$this->assertSame( array(), $changeset_data );
 		$changeset_settings = json_decode( $changeset_data['settings'], true );
 
 		$this->assertArrayHasKey( $setting_allowed_id, $changeset_settings );
 		$this->assertFalse( isset( $changeset_settings[ $setting_forbidden_id ] ) );
+
+		remove_action( 'customize_register', array( $this, 'custom_settings_customize_register' ) );
 	}
 
 	/**
@@ -578,7 +586,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$manager = new WP_Customize_Manager();
 		$manager->save_changeset_post( array(
-			'customize_changeset_data' => array(
+			'data' => array(
 				$setting_allowed_id => array(
 					'value' => 'Foo',
 				),
@@ -925,7 +933,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$manager = new WP_Customize_Manager();
 		$manager->save_changeset_post( array(
-			'customize_changeset_data' => array(
+			'data' => array(
 				'basic_option' => array(
 					'value' => 'Foo',
 				),
