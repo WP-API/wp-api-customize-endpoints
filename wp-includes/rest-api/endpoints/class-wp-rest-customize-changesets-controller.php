@@ -26,6 +26,15 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	protected $post_type = 'customize_changeset';
 
 	/**
+	 * WP Customize Manager.
+	 *
+	 * @since 4.?.?
+	 * @access protected
+	 * @var WP_Customize_Manager
+	 */
+	protected $manager;
+
+	/**
 	 * Constructor.
 	 *
 	 * @since 4.7.0
@@ -35,6 +44,7 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 		$this->namespace = 'customize/v1';
 		$this->rest_base = 'changesets';
 
+		$this->manager = new WP_Customize_Manager();
 		// @todo meta?
 	}
 
@@ -202,12 +212,45 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 
 		$post_type = get_post_type_object( $this->post_type );
 		$changeset_post = $this->get_customize_changeset_post( $request['uuid'] );
+		$data = array();
+		if ( isset( $request['customize_changeset_data'] ) ) {
+			$data = $request['customize_changeset_data'];
+		}
 
-		// @todo Check for update permissions.
+		if ( 'edit' === $request['context'] && $changeset_post && ! $this->check_update_permission( $changeset_post, $data ) ) {
+			return new WP_Error( 'rest_forbidden_context', __( 'Sorry, you are not allowed to edit this post.' ), array(
+				'status' => rest_authorization_required_code(),
+			) );
+		}
+
 		if ( ! current_user_can( $post_type->cap->read_post, $changeset_post->ID ) ) {
 			return false;
 		}
 
+		return true;
+	}
+
+	/**
+	 * Check if user has permissions to edit all the values.
+	 *
+	 * @param object $changeset_post Changeset post object.
+	 * @param array  $data Array of data to change.
+	 * @return bool If has permissions.
+	 */
+	protected function check_update_permission( $changeset_post, $data ) {
+		$post_type = get_post_type_object( $this->post_type );
+
+		if ( ! current_user_can( $post_type->cap->edit_post, $changeset_post->ID ) ) {
+			return false;
+		}
+
+		// Check permissions per setting.
+		foreach ( $data as $setting_id => $params ) {
+			$setting = $this->manager->get_setting( $setting_id );
+			if ( ! $setting->check_capabilities() ) {
+				return false;
+			}
+		}
 		return true;
 	}
 
