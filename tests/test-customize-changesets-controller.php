@@ -12,6 +12,16 @@
  * @group restapi
  */
 class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controller_TestCase {
+
+	/**
+	 * REST Server.
+	 *
+	 * Note that this variable is already defined on the parent class but it lacks the phpdoc variable type.
+	 *
+	 * @var WP_REST_Server
+	 */
+	protected $server;
+
 	/**
 	 * Subscriber user ID.
 	 *
