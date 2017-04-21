@@ -151,11 +151,8 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 				),
 				'settings'        => array(
 					'description' => __( 'The content of the customize changeset. Changed settings in JSON format.' ),
-					'type'        => 'string',
+					'type'        => 'array',
 					'context'     => array( 'view', 'edit' ),
-					'arg_options' => array(
-						'sanitize_callback' => null,
-					),
 				),
 				'slug'            => array(
 					'description' => __( 'Unique Customize Changeset identifier, uuid' ),
@@ -212,6 +209,9 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 
 		$post_type_obj = get_post_type_object( $this->post_type );
 		$changeset_post = $this->get_customize_changeset_post( $request['uuid'] );
+		if ( ! $changeset_post ) {
+			return false;
+		}
 		$data = array();
 		if ( isset( $request['customize_changeset_data'] ) ) {
 			$data = $request['customize_changeset_data'];
@@ -580,16 +580,13 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 			$settings[ $setting_id ] = $params['value'];
 		}
 
-		$data['settings'] = wp_json_encode( $settings );
+		$data['settings'] = $settings;
 
 		$data['author'] = (int) $changeset_post->post_author;
 
 		$context = ! empty( $request['context'] ) ? $request['context'] : 'view';
 		$data    = $this->add_additional_fields_to_object( $data, $request );
 		$data    = $this->filter_response_by_context( $data, $context );
-
-		// Wrap the data in a response object.
-		$response = rest_ensure_response( $data );
 
 		/**
 		 * Filters the customize changeset data for a response.
@@ -600,7 +597,7 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 		 * @param WP_Post          $post     Customize Changeset Post object.
 		 * @param WP_REST_Request  $request  Request object.
 		 */
-		return apply_filters( 'rest_prepare_customize_changeset', $response, $changeset_post, $request );
+		return apply_filters( 'rest_prepare_customize_changeset', $data, $changeset_post, $request );
 	}
 
 	/**
