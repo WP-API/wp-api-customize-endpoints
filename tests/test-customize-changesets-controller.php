@@ -856,8 +856,8 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	 */
 	public function data_bad_customize_changeset_status() {
 		return array(
-			// Doesn't exist.
-			array( rand_str() ),
+			// Probably doesn't exist.
+			array( '437284923487239847293487' ),
 			// Not in the whitelist.
 			array( 'trash' ),
 		);
@@ -1374,7 +1374,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		wp_set_current_user( self::$admin_id );
 
 		$uuid = wp_generate_uuid4();
-		$blogname_after = rand_str();
+		$blogname_after = 'test_update_item_create_with_bloginfo';
 
 		$request = new WP_REST_Request( 'PUT', sprintf( '/customize/v1/changesets/%s', $uuid ) );
 		$request->set_body_params( array(
@@ -1397,7 +1397,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	public function test_update_item_edit_with_bloginfo() {
 		wp_set_current_user( self::$admin_id );
 
-		$blogname_after = rand_str();
+		$blogname_after = 'test_update_item_edit_with_bloginfo';
 
 		$manager = new WP_Customize_Manager();
 		$manager->save_changeset_post( array(
@@ -1424,7 +1424,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	public function test_update_item_setting_validities() {
 		wp_set_current_user( self::$admin_id );
 
-		$bad_setting = rand_str();
+		$bad_setting = 'test_update_item_setting_validities';
 
 		$request = new WP_REST_Request( 'PUT', sprintf( '/customize/v1/changesets/%s', wp_generate_uuid4() ) );
 		$request->set_body_params( array(
@@ -1456,7 +1456,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$request = new WP_REST_Request( 'PUT', sprintf( '/customize/v1/changesets/%s', $uuid ) );
 		$request->set_body_params( array(
 			'customize_changeset_data' => array(
-				'blogname' => rand_str(),
+				'blogname' => 'test_update_item_insert_transaction_fail_setting_validities',
 				$illegal_setting => array(
 					'value' => 'Foo',
 				),
@@ -1481,7 +1481,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	public function test_update_item_update_transaction_fail_setting_validities() {
 		wp_set_current_user( self::$admin_id );
 
-		$blogname_before = rand_str();
+		$blogname_before = 'test_update_item_update_transaction_fail_setting_validities';
 
 		$manager = new WP_Customize_Manager();
 		$manager->save_changeset_post( array(
@@ -1498,7 +1498,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$request = new WP_REST_Request( 'PUT', sprintf( '/customize/v1/changesets/%s', $manager->changeset_uuid() ) );
 		$request->set_body_params( array(
 			'customize_changeset_data' => array(
-				'blogname' => rand_str(),
+				'blogname' => $blogname_before . '_updated',
 				$illegal_setting => array(
 					'value' => 'Foo',
 				),
