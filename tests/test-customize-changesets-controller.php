@@ -133,29 +133,29 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$this->assertEquals( 7, count( $properties ) );
 
 		$this->assertArrayHasKey( 'author', $properties );
-		$this->assertSame( 'integer', $properties['author'] );
+		$this->assertSame( 'integer', $properties['author']['type'] );
 
 		$this->assertArrayHasKey( 'date', $properties );
-		$this->assertSame( 'string', $properties['date'] );
+		$this->assertSame( 'string', $properties['date']['type'] );
 		$this->assertArrayHasKey( 'sanitize_callback', $properties['date']['arg_options'] );
 
 		$this->assertArrayHasKey( 'date_gmt', $properties );
-		$this->assertSame( 'string', $properties['date_gmt'] );
+		$this->assertSame( 'string', $properties['date_gmt']['type'] );
 		$this->assertArrayHasKey( 'sanitize_callback', $properties['date_gmt']['arg_options'] );
 
 		$this->assertArrayHasKey( 'settings', $properties ); // Instead of content.
 		$this->assertSame( 'array', $properties['settings'] );
 
 		$this->assertArrayHasKey( 'slug', $properties );
-		$this->assertSame( 'string', $properties['slug'] );
+		$this->assertSame( 'string', $properties['slug']['type'] );
 		$this->assertArrayHasKey( 'sanitize_callback', $properties['slug']['arg_options'] );
 
 		$this->assertArrayHasKey( 'status', $properties );
-		$this->assertSame( 'string', $properties['status'] );
+		$this->assertSame( 'string', $properties['status']['type'] );
 		$this->assertArrayHasKey( 'sanitize_callback', $properties['status']['arg_options'] );
 
 		$this->assertArrayHasKey( 'title', $properties );
-		$this->assertSame( 'string', $properties['title'] );
+		$this->assertSame( 'string', $properties['title']['type'] );
 		$this->assertArrayHasKey( 'sanitize_callback', $properties['title']['arg_options'] );
 	}
 
@@ -264,16 +264,17 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 			'post_type' => 'customize_changeset',
 			'post_name' => wp_generate_uuid4(),
 			'post_status' => 'auto-draft',
+			'post_content' => '{}',
 		) );
 		$this->factory()->post->create( array(
 			'post_type' => 'customize_changeset',
 			'post_name' => wp_generate_uuid4(),
 			'post_status' => 'auto-draft',
+			'post_content' => '{}',
 		) );
 
 		$request = new WP_REST_Request( 'GET', sprintf( '/customize/v1/changesets' ) );
 		$response = $this->server->dispatch( $request );
-
 		$this->assertNotInstanceOf( 'WP_Error', $response );
 		$response = rest_ensure_response( $response );
 		$this->assertEquals( 200, $response->get_status() );
