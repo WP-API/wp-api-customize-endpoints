@@ -125,20 +125,38 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	 */
 	public function test_get_item_schema() {
 
-		// @todo Add all properties.
 		$request = new WP_REST_Request( 'OPTIONS', '/customize/v1/changesets' );
 		$response = $this->server->dispatch( $request );
 		$data = $response->get_data();
 		$properties = $data['schema']['properties'];
 
 		$this->assertEquals( 7, count( $properties ) );
+
 		$this->assertArrayHasKey( 'author', $properties );
+		$this->assertSame( 'integer', $properties['author'] );
+
 		$this->assertArrayHasKey( 'date', $properties );
+		$this->assertSame( 'string', $properties['date'] );
+		$this->assertArrayHasKey( 'sanitize_callback', $properties['date']['arg_options'] );
+
 		$this->assertArrayHasKey( 'date_gmt', $properties );
+		$this->assertSame( 'string', $properties['date_gmt'] );
+		$this->assertArrayHasKey( 'sanitize_callback', $properties['date_gmt']['arg_options'] );
+
 		$this->assertArrayHasKey( 'settings', $properties ); // Instead of content.
+		$this->assertSame( 'array', $properties['settings'] );
+
 		$this->assertArrayHasKey( 'slug', $properties );
+		$this->assertSame( 'string', $properties['slug'] );
+		$this->assertArrayHasKey( 'sanitize_callback', $properties['slug']['arg_options'] );
+
 		$this->assertArrayHasKey( 'status', $properties );
+		$this->assertSame( 'string', $properties['status'] );
+		$this->assertArrayHasKey( 'sanitize_callback', $properties['status']['arg_options'] );
+
 		$this->assertArrayHasKey( 'title', $properties );
+		$this->assertSame( 'string', $properties['title'] );
+		$this->assertArrayHasKey( 'sanitize_callback', $properties['title']['arg_options'] );
 	}
 
 	/**
@@ -158,7 +176,8 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$this->assertNotInstanceOf( 'WP_Error', $response );
 		$response = rest_ensure_response( $response );
 		$this->assertEquals( 200, $response->get_status() );
-		$this->assertSame( $manager->changeset_uuid(), $response->get_data()['slug'] );
+		$data = $response->get_data();
+		$this->assertSame( $manager->changeset_uuid(), $data['slug'] );
 	}
 
 	/**
@@ -241,11 +260,16 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	public function test_get_items() {
 		wp_set_current_user( self::$admin_id );
 
-		$manager1 = new WP_Customize_Manager();
-		$manager1->save_changeset_post();
-
-		$manager2 = new WP_Customize_Manager();
-		$manager2->save_changeset_post();
+		$this->factory()->post->create( array(
+			'post_type' => 'customize_changeset',
+			'post_name' => wp_generate_uuid4(),
+			'post_status' => 'auto-draft',
+		) );
+		$this->factory()->post->create( array(
+			'post_type' => 'customize_changeset',
+			'post_name' => wp_generate_uuid4(),
+			'post_status' => 'auto-draft',
+		) );
 
 		$request = new WP_REST_Request( 'GET', sprintf( '/customize/v1/changesets' ) );
 		$response = $this->server->dispatch( $request );
@@ -301,7 +325,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$changeset_data = $response->get_data();
 		$this->assertSame( array(), $changeset_data );
-		$changeset_settings = json_decode( $changeset_data['settings'], true );
+		$changeset_settings = $changeset_data['settings'];
 
 		$this->assertArrayHasKey( self::ALLOWED_TEST_SETTING_ID, $changeset_settings );
 		$this->assertFalse( isset( $changeset_settings[ self::FORBIDDEN_TEST_SETTING_ID ] ) );
@@ -316,18 +340,11 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	 * @return object mixed Filtered data.
 	 */
 	public function get_changeset_custom_callback( $response ) {
-
-		$changeset_data = array(
+		$response->data['settings'] = array(
 			'foo' => array(
 				'value' => 'bar',
 			),
 		);
-		$json_options = 0;
-		if ( defined( 'JSON_UNESCAPED_SLASHES' ) ) {
-			$json_options |= JSON_UNESCAPED_SLASHES;
-		}
-		$json_options |= JSON_PRETTY_PRINT;
-		$response->data['settings'] = wp_json_encode( $changeset_data, $json_options );
 
 		return $response;
 	}
@@ -347,7 +364,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$response = $this->server->dispatch( $request );
 		$changeset_data = $response->get_data();
 
-		$changeset_settings = json_decode( $changeset_data['settings'], true );
+		$changeset_settings = $changeset_data['settings'];
 
 		$this->assertArrayHasKey( 'foo', $changeset_settings );
 		$this->assertSame( $changeset_settings['foo']['value'], 'bar' );
@@ -372,7 +389,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$request = new WP_REST_Request( 'POST', '/customize/v1/changesets' );
 		$request->set_body_params( array(
-			'customize_changeset_data' => '[MALFORMED]',
+			'settings' => '[MALFORMED]',
 		) );
 		$response = $this->server->dispatch( $request );
 
@@ -387,7 +404,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$request = new WP_REST_Request( 'POST', '/customize/v1/changesets' );
 		$request->set_body_params( array(
-			'customize_changeset_data' => array(
+			'settings' => array(
 				'foo' => array(
 					'value' => 'bar',
 				),
@@ -400,7 +417,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$this->assertEquals( 200, $response->get_status() );
 		$this->assertEquals( 'Title', $data['title'] );
 
-		$changeset_settings = json_decode( $data['settings'], true );
+		$changeset_settings = $data['settings'];
 		$this->assertSame( 'bar', $changeset_settings['foo']['value'] );
 	}
 
@@ -429,7 +446,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$request->set_param( 'status', 'publish' );
 		$request->set_body_params( array(
 			'status' => 'publish',
-			'customize_changeset_data' => array(
+			'settings' => array(
 				'blogname' => array(
 					'value' => 'Blogname',
 				),
@@ -468,7 +485,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$request = new WP_REST_Request( 'POST', '/customize/v1/changesets' );
 		$request->set_body_params( array(
-			'customize_changeset_data' => array(
+			'settings' => array(
 				'title' => array(
 					'value' => 'Title',
 				),
@@ -507,7 +524,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 			'menu-item-object' => 'post',
 		);
 		$params = array(
-			'customize_changeset_data' => array(
+			'settings' => array(
 				'nav_menu_item[' . $menu_item_id . ']' => array(
 					'value' => $args,
 					'type' => 'nav_menu_item',
@@ -599,7 +616,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$changed_value = 'changed_setting_value';
 		$request = new WP_REST_Request( 'PUT', sprintf( '/customize/v1/changesets/%s', $manager->changeset_uuid() ) );
 		$request->set_body_params( array(
-			'customize_changeset_data' => array(
+			'settings' => array(
 				self::FORBIDDEN_TEST_SETTING_ID => array(
 					'value' => $changed_value,
 				),
@@ -623,7 +640,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$response = rest_ensure_response( $response );
 
 		$changeset_data = $response->get_data();
-		$changeset_settings = json_decode( $changeset_data['settings'], true );
+		$changeset_settings = $changeset_data['settings'];
 
 		$this->assertSame( 'setting_value', $changeset_settings[ self::ALLOWED_TEST_SETTING_ID ]['value'] );
 
@@ -682,7 +699,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$request = new WP_REST_Request( 'PUT', sprintf( '/customize/v1/changesets/%s', $uuid ) );
 		$request->set_body_params( array(
-			'customize_changeset_data' => array(
+			'settings' => array(
 				'basic_option' => array(
 					'value' => 'Foo',
 				),
@@ -710,7 +727,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$request = new WP_REST_Request( 'PUT', sprintf( '/customize/v1/changesets/%s', $manager->changeset_uuid() ) );
 		$request->set_body_params( array(
-			'customize_changeset_data' => array(
+			'settings' => array(
 				'basic_option' => array(
 					'value' => 'Foo',
 				),
@@ -742,7 +759,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$request = new WP_REST_Request( 'PUT', sprintf( '/customize/v1/changesets/%s', $manager->changeset_uuid() ) );
 		$request->set_body_params( array(
-			'customize_changeset_data' => '[MALFORMED]',
+			'settings' => '[MALFORMED]',
 		) );
 		$response = $this->server->dispatch( $request );
 
@@ -947,7 +964,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$request = new WP_REST_Request( 'PUT', sprintf( '/customize/v1/changesets/%s', $manager->changeset_uuid() ) );
 		$request->set_body_params( array(
-			'customize_changeset_data' => array(
+			'settings' => array(
 				'basic_option' => array(
 					'value' => 'Bar',
 				),
@@ -1378,7 +1395,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$request = new WP_REST_Request( 'PUT', sprintf( '/customize/v1/changesets/%s', $uuid ) );
 		$request->set_body_params( array(
-			'customize_changeset_data' => array(
+			'settings' => array(
 				'blogname' => array(
 					'value' => $blogname_after,
 				),
@@ -1428,7 +1445,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$request = new WP_REST_Request( 'PUT', sprintf( '/customize/v1/changesets/%s', wp_generate_uuid4() ) );
 		$request->set_body_params( array(
-			'customize_changeset_data' => array(
+			'settings' => array(
 				$bad_setting => array(
 					'value' => 'Foo',
 				),
@@ -1455,7 +1472,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$request = new WP_REST_Request( 'PUT', sprintf( '/customize/v1/changesets/%s', $uuid ) );
 		$request->set_body_params( array(
-			'customize_changeset_data' => array(
+			'settings' => array(
 				'blogname' => 'test_update_item_insert_transaction_fail_setting_validities',
 				$illegal_setting => array(
 					'value' => 'Foo',
@@ -1497,7 +1514,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$request = new WP_REST_Request( 'PUT', sprintf( '/customize/v1/changesets/%s', $manager->changeset_uuid() ) );
 		$request->set_body_params( array(
-			'customize_changeset_data' => array(
+			'settings' => array(
 				'blogname' => $blogname_before . '_updated',
 				$illegal_setting => array(
 					'value' => 'Foo',
