@@ -144,7 +144,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$this->assertArrayHasKey( 'sanitize_callback', $properties['date_gmt']['arg_options'] );
 
 		$this->assertArrayHasKey( 'settings', $properties ); // Instead of content.
-		$this->assertSame( 'array', $properties['settings'] );
+		$this->assertSame( 'object', $properties['settings'] );
 
 		$this->assertArrayHasKey( 'slug', $properties );
 		$this->assertSame( 'string', $properties['slug']['type'] );
