@@ -1454,10 +1454,13 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		) );
 		$response = $this->server->dispatch( $request );
 
-		$this->assertSame( 200, $response->get_status() );
+		$this->assertErrorResponse( 'invalid_customize_changeset_data', $response );
 
-		$data = $response->get_data();
-		$this->assertTrue( isset( $data['setting_validities'][ $bad_setting ]['unrecognized'] ) );
+		$error_data = $response->as_error()->get_error_data();
+		$this->assertTrue( isset( $error_data['setting_validities'][ $bad_setting ]['unrecognized'] ) );
+
+		$manager = new WP_Customize_Manager();
+		$this->assertEmpty( $manager->find_changeset_post_id( $uuid ) );
 	}
 
 	/**
