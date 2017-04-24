@@ -142,16 +142,22 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 					'type'        => 'string',
 					'format'      => 'date-time',
 					'context'     => array( 'view', 'edit', 'embed' ),
+					'arg_options' => array(
+						'sanitize_callback' => array( $this, 'sanitize_datetime' ),
+					),
 				),
 				'date_gmt'        => array(
 					'description' => __( 'The date the object was published, as GMT.' ),
 					'type'        => 'string',
 					'format'      => 'date-time',
 					'context'     => array( 'view', 'edit' ),
+					'arg_options' => array(
+						'sanitize_callback' => array( $this, 'sanitize_datetime' ),
+					),
 				),
 				'settings'        => array(
 					'description' => __( 'The content of the customize changeset. Changed settings in JSON format.' ),
-					'type'        => 'array',
+					'type'        => 'object',
 					'context'     => array( 'view', 'edit' ),
 				),
 				'slug'            => array(
@@ -168,6 +174,9 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 					'type'        => 'string',
 					'enum'        => $status_enum,
 					'context'     => array( 'view', 'edit' ),
+					'arg_options' => array(
+						'sanitize_callback' => array( $this, 'sanitize_post_statuses' ),
+					),
 				),
 				'title'           => array(
 					'description' => __( 'The title for the object.' ),
@@ -574,7 +583,7 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 
 		foreach ( $raw_settings as $setting_id => $params ) {
 			$setting = $this->manager->get_setting( $setting_id );
-			if ( ! $setting->check_capabilities() ) {
+			if ( ! $setting || ! $setting->check_capabilities() ) {
 				continue;
 			}
 			$settings[ $setting_id ] = $params['value'];
@@ -677,5 +686,21 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 		}
 
 		return $statuses;
+	}
+
+	/**
+	 * Make sure the datetime is in correct format.
+	 *
+	 * @param string $date Date string.
+	 * @return string|WP_Error Date string or error.
+	 */
+	public function sanitize_datetime( $date ) {
+		if ( DateTime::createFromFormat( 'Y-m-d g:i a', $date ) ) {
+			return $date;
+		} else {
+			return new WP_Error( 'rest_incorrect_date', __( 'Incorrect date format' ), array(
+				'status' => 402,
+			) );
+		}
 	}
 }
