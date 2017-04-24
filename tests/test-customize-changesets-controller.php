@@ -303,29 +303,31 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	public function test_get_item_without_permissions_to_some_settings() {
 		wp_set_current_user( self::$admin_id );
 
-		$manager = new WP_Customize_Manager();
-		$manager->save_changeset_post( array(
-			'status' => 'auto-draft',
-			'data' => array(
-				self::ALLOWED_TEST_SETTING_ID => array(
-					'value' => 'Foo',
-				),
-				self::FORBIDDEN_TEST_SETTING_ID => array(
-					'value' => 'Bar',
-				),
+		$settings = wp_json_encode( array(
+			self::ALLOWED_TEST_SETTING_ID => array(
+				'value' => 'Foo',
 			),
+			self::FORBIDDEN_TEST_SETTING_ID => array(
+				'value' => 'Bar',
+			),
+		) );
+		$uuid = wp_generate_uuid4();
+		$this->factory()->post->create( array(
+			'post_type' => 'customize_changeset',
+			'post_name' => $uuid,
+			'post_status' => 'auto-draft',
+			'post_content' => $settings,
 		) );
 
 		add_action( 'customize_register', array( $this, 'add_test_customize_settings' ) );
 
-		$request = new WP_REST_Request( 'GET', sprintf( '/customize/v1/changesets/%s', $manager->changeset_uuid() ) );
+		$request = new WP_REST_Request( 'GET', sprintf( '/customize/v1/changesets/%s', $uuid ) );
 		$response = $this->server->dispatch( $request );
 
 		$this->assertNotInstanceOf( 'WP_Error', $response );
 		$response = rest_ensure_response( $response );
 
 		$changeset_data = $response->get_data();
-		$this->assertSame( array(), $changeset_data );
 		$changeset_settings = $changeset_data['settings'];
 
 		$this->assertArrayHasKey( self::ALLOWED_TEST_SETTING_ID, $changeset_settings );
