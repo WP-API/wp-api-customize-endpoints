@@ -125,10 +125,9 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	 */
 	public function test_get_item_schema() {
 
-		$request = new WP_REST_Request( 'OPTIONS', '/customize/v1/changesets' );
-		$response = $this->server->dispatch( $request );
-		$data = $response->get_data();
-		$properties = $data['schema']['properties'];
+		$changeset_controller = new WP_REST_Customize_Changesets_Controller();
+		$schema = $changeset_controller->get_item_schema();
+		$properties = $schema['properties'];
 
 		$this->assertEquals( 7, count( $properties ) );
 
@@ -144,7 +143,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$this->assertArrayHasKey( 'sanitize_callback', $properties['date_gmt']['arg_options'] );
 
 		$this->assertArrayHasKey( 'settings', $properties ); // Instead of content.
-		$this->assertSame( 'object', $properties['settings'] );
+		$this->assertSame( 'object', $properties['settings']['type'] );
 
 		$this->assertArrayHasKey( 'slug', $properties );
 		$this->assertSame( 'string', $properties['slug']['type'] );
