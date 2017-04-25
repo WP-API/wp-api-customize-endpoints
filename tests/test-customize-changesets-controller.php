@@ -1344,49 +1344,6 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	}
 
 	/**
-	 * Test that creating a published changeset with update_item() returns a new changeset UUID.
-	 */
-	public function test_update_item_create_has_next_changeset_id_after_publish() {
-		wp_set_current_user( self::$admin_id );
-
-		$uuid_before = wp_generate_uuid4();
-
-		$request = new WP_REST_Request( 'PUT', sprintf( '/customize/v1/changesets/%s', $uuid_before ) );
-		$request->set_body_params( array(
-			'status' => 'publish',
-		) );
-		$response = $this->server->dispatch( $request );
-
-		$data = $response->get_data();
-		$this->assertTrue( isset( $data['next_changeset_uuid'] ) );
-		$this->assertNotSame( $data['next_changeset_uuid'], $uuid_before );
-	}
-
-	/**
-	 * Test that publishing an existing changeset with update_item() returns a new changeset UUID.
-	 */
-	public function test_update_item_edit_has_next_changeset_id_after_publish() {
-		wp_set_current_user( self::$admin_id );
-
-		$uuid_before = wp_generate_uuid4();
-
-		$manager = new WP_Customize_Manager( array(
-			'changeset_uuid' => $uuid_before,
-		) );
-		$manager->save_changeset_post();
-
-		$request = new WP_REST_Request( 'PUT', sprintf( '/customize/v1/changesets/%s', $uuid_before ) );
-		$request->set_body_params( array(
-			'status' => 'publish',
-		) );
-		$response = $this->server->dispatch( $request );
-
-		$data = $response->get_data();
-		$this->assertTrue( isset( $data['next_changeset_uuid'] ) );
-		$this->assertNotSame( $data['next_changeset_uuid'], $uuid_before );
-	}
-
-	/**
 	 * Test that creating a published changeset with update_item() updates a valid setting.
 	 */
 	public function test_update_item_create_with_bloginfo() {
