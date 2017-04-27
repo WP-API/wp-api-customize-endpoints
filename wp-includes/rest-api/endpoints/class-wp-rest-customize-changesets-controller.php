@@ -126,6 +126,7 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 
 		$status_enum = array(
 			'auto-draft',
+			'draft',
 			'future',
 			'publish',
 			'private',
@@ -485,6 +486,18 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 			return $prepared_post;
 		}
 
+		// Special case for publishing.
+		$is_publish = ( 'publish' === $prepared_post->status || 'future' === $prepared_post->status );
+		if ( $is_publish && ! current_user_can( get_post_type_object( 'customize_changeset' )->cap->publish_posts ) ) {
+			return new WP_Error( 'changeset_publish_unauthorized', __( 'Sorry, you are not allowed to publish customize changesets.' ), array(
+				'status' => 403,
+			) );
+		}
+
+		if ( $is_publish ) {
+			$prepared_post->status = 'auto-draft';
+		}
+
 		$prepared_post->post_type = $this->post_type;
 
 		$post_id = wp_insert_post( wp_slash( (array) $prepared_post ), true );
@@ -522,6 +535,12 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 		if ( is_wp_error( $fields_update ) ) {
 			return $fields_update;
 		}
+
+		if ( $is_publish ) {
+			wp_publish_post( $post_id );
+		}
+
+		$post = get_post( $post_id );
 
 		$request->set_param( 'context', 'edit' );
 
@@ -634,7 +653,7 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 
 		// Status.
 		if ( isset( $request['status'] ) ) {
-			// @todo create special case for when status is 'publish'.
+
 			$status_check = $this->sanitize_post_statuses( $request['status'], $request, $this->post_type );
 			if ( is_wp_error( $status_check ) ) {
 				return $status_check;
