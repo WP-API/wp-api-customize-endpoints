@@ -497,7 +497,6 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 		);
 
 		$query_params['status'] = array(
-			'default'           => 'publish',
 			'description'       => __( 'Limit result set to posts assigned one or more statuses.' ),
 			'type'              => 'array',
 			'items'             => array(
