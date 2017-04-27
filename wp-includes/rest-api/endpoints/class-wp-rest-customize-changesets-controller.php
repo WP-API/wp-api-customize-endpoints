@@ -494,10 +494,6 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 			) );
 		}
 
-		if ( $is_publish ) {
-			$prepared_post->post_status = 'auto-draft';
-		}
-
 		$prepared_post->post_type = $this->post_type;
 
 		$post_id = wp_insert_post( wp_slash( (array) $prepared_post ), true );
@@ -535,12 +531,6 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 		if ( is_wp_error( $fields_update ) ) {
 			return $fields_update;
 		}
-
-		if ( $is_publish ) {
-			wp_publish_post( $post_id );
-		}
-
-		$post = get_post( $post_id );
 
 		$request->set_param( 'context', 'edit' );
 
