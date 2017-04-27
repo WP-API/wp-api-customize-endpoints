@@ -46,13 +46,11 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	 */
 	public function ensure_customize_manager( $changeset_uuid = null ) {
 		global $wp_customize;
-		if ( empty( $wp_customize ) ) {
+		if ( empty( $wp_customize ) || $wp_customize->changeset_uuid() !== $changeset_uuid ) {
 			$wp_customize = new WP_Customize_Manager( compact( 'changeset_uuid' ) ); // WPCS: global override ok.
 
 			/** This action is documented in wp-includes/class-wp-customize-manager.php */
 			do_action( 'customize_register', $wp_customize );
-		} elseif ( $wp_customize->changeset_uuid() !== $changeset_uuid ) {
-			throw new Exception( 'Unexpected UUID' );
 		}
 		return $wp_customize;
 	}
