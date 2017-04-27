@@ -154,7 +154,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$this->assertArrayHasKey( 'sanitize_callback', $properties['status']['arg_options'] );
 
 		$this->assertArrayHasKey( 'title', $properties );
-		$this->assertSame( 'string', $properties['title']['type'] );
+		$this->assertSame( 'object', $properties['title']['type'] );
 		$this->assertArrayHasKey( 'sanitize_callback', $properties['title']['arg_options'] );
 	}
 
@@ -321,6 +321,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		add_action( 'customize_register', array( $this, 'add_test_customize_settings' ) );
 
 		$request = new WP_REST_Request( 'GET', sprintf( '/customize/v1/changesets/%s', $uuid ) );
+
 		$response = $this->server->dispatch( $request );
 
 		$this->assertNotInstanceOf( 'WP_Error', $response );
@@ -338,17 +339,17 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	/**
 	 * Filter for GET request.
 	 *
-	 * @param object $response Rest response.
-	 * @return object mixed Filtered data.
+	 * @param array $data Response data.
+	 * @return array Filtered data.
 	 */
-	public function get_changeset_custom_callback( $response ) {
-		$response->data['settings'] = array(
+	public function get_changeset_custom_callback( $data ) {
+		$data['settings'] = array(
 			'foo' => array(
 				'value' => 'bar',
 			),
 		);
 
-		return $response;
+		return $data;
 	}
 
 	/**
