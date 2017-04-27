@@ -26,15 +26,6 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	protected $post_type = 'customize_changeset';
 
 	/**
-	 * WP Customize Manager.
-	 *
-	 * @since 4.?.?
-	 * @access protected
-	 * @var WP_Customize_Manager
-	 */
-	protected $manager;
-
-	/**
 	 * Constructor.
 	 *
 	 * @since 4.7.0
@@ -43,9 +34,27 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	public function __construct() {
 		$this->namespace = 'customize/v1';
 		$this->rest_base = 'changesets';
+	}
 
-		$this->manager = new WP_Customize_Manager();
-		// @todo meta?
+	/**
+	 * Ensure customize manager.
+	 *
+	 * @param string $changeset_uuid UUID.
+	 * @return WP_Customize_Manager Manager.
+	 * @global WP_Customize_Manager $wp_customize
+	 * @throws Exception When an unexpected UUID is supplied.
+	 */
+	public function ensure_customize_manager( $changeset_uuid = null ) {
+		global $wp_customize;
+		if ( empty( $wp_customize ) ) {
+			$wp_customize = new WP_Customize_Manager( compact( 'changeset_uuid' ) ); // WPCS: global override ok.
+
+			/** This action is documented in wp-includes/class-wp-customize-manager.php */
+			do_action( 'customize_register', $wp_customize );
+		} elseif ( $wp_customize->changeset_uuid() !== $changeset_uuid ) {
+			throw new Exception( 'Unexpected UUID' );
+		}
+		return $wp_customize;
 	}
 
 	/**
@@ -264,11 +273,11 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 			return false;
 		}
 
-		do_action( 'customize_register', $this->manager );
+		$manager = $this->ensure_customize_manager( $changeset_post->post_name );
 
 		// Check permissions per setting.
 		foreach ( $data as $setting_id => $params ) {
-			$setting = $this->manager->get_setting( $setting_id );
+			$setting = $manager->get_setting( $setting_id );
 			if ( ! $setting || ! $setting->check_capabilities() ) {
 				return false;
 			}
@@ -287,10 +296,15 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	 */
 	public function get_item( $request ) {
 
-		do_action( 'customize_register', $this->manager );
+		$manager = $this->ensure_customize_manager( $request['uuid'] );
+		$post_id = $manager->changeset_post_id();
+		if ( ! $post_id ) {
+			return new WP_Error( 'rest_post_invalid_uuid', __( 'Invalid changeset UUID.' ), array(
+				'status' => 404,
+			) );
+		}
 
-		$changeset_post = $this->get_customize_changeset_post( $request['uuid'] );
-		$data = $this->prepare_item_for_response( $changeset_post, $request );
+		$data = $this->prepare_item_for_response( get_post( $post_id ), $request );
 		$response = rest_ensure_response( $data );
 
 		return $response;
@@ -328,8 +342,6 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
 	public function get_items( $request ) {
-
-		do_action( 'customize_register', $this->manager );
 
 		// Ensure a search string is set in case the orderby is set to 'relevance'.
 		if ( ! empty( $request['orderby'] ) && 'relevance' === $request['orderby'] && empty( $request['search'] ) ) {
@@ -478,7 +490,9 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	 */
 	public function create_item( $request ) {
 
-		do_action( 'customize_register', $this->manager );
+		if ( empty( $request['uuid'] ) ) {
+			$request['uuid'] = wp_generate_uuid4();
+		}
 
 		$prepared_post = $this->prepare_item_for_database( $request );
 
@@ -555,20 +569,9 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	protected function prepare_item_for_database( $request ) {
 		$prepared_post = new stdClass;
 
-		if ( isset( $request['uuid'] ) ) {
-			$existing_post = null;
-			$post_id = $this->manager->find_changeset_post_id( $request['uuid'] );
-			if ( $post_id ) {
-				$existing_post = get_post( $post_id );
-			}
-			if ( ! $existing_post ) {
-				return new WP_Error( 'rest_post_invalid_uuid', __( 'Invalid changeset UUID.' ), array(
-					'status' => 404,
-				) );
-			}
-
-			$prepared_post->ID = $existing_post->ID;
-		}
+		$manager = $this->ensure_customize_manager( $request['uuid'] );
+		$prepared_post->ID = $manager->changeset_post_id();
+		$prepared_post->post_name = $request['uuid'];
 
 		// Post title.
 		if ( isset( $request['title'] ) ) {
@@ -590,12 +593,16 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 			}
 			foreach ( $request['settings'] as $setting_id => $params ) {
 
-				$setting = $this->manager->get_setting( $setting_id );
+				$setting = $manager->get_setting( $setting_id );
 				if ( ! $setting ) {
-					return new WP_Error( 'invalid_customize_changeset_data', __( 'Invalid setting.' ), array( 'status' => 400 ) );
+					return new WP_Error( 'invalid_customize_changeset_data', __( 'Invalid setting.' ), array(
+						'status' => 400,
+					) );
 				}
 				if ( ! $setting->check_capabilities() ) {
-					return new WP_Error( 'rest_forbidden', __( 'Sorry, you are not allowed to edit some of the settings.' ), array( 'status' => 403 ) );
+					return new WP_Error( 'rest_forbidden', __( 'Sorry, you are not allowed to edit some of the settings.' ), array(
+						'status' => 403,
+					) );
 				}
 				$settings[ $setting_id ] = array(
 					'value' => $params['value'],
@@ -802,6 +809,8 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	 */
 	public function prepare_item_for_response( $changeset_post, $request ) {
 
+		$manager = $this->ensure_customize_manager( $changeset_post->post_name );
+
 		$data = array();
 
 		$data['date'] = $this->prepare_date_response( $changeset_post->post_date_gmt, $changeset_post->post_date );
@@ -827,7 +836,7 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 		if ( is_array( $raw_settings ) ) {
 			foreach ( $raw_settings as $setting_id => $params ) {
 
-				$setting = $this->manager->get_setting( $setting_id );
+				$setting = $manager->get_setting( $setting_id );
 				if ( ! $setting || ! $setting->check_capabilities() ) {
 					continue;
 				}
