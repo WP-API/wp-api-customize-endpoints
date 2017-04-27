@@ -78,12 +78,37 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	}
 
 	/**
+	 * Setup.
+	 */
+	public function setUp() {
+		parent::setUp();
+		add_action( 'customize_register', array( $this, 'add_test_customize_settings' ) );
+	}
+
+	/**
 	 * Return a WP_Error with an 'illegal' code..
 	 *
 	 * @return WP_Error
 	 */
 	public function __return_error_illegal() {
 		return new WP_Error( 'illegal' );
+	}
+
+	const ALLOWED_TEST_SETTING_ID = 'allowed_setting';
+
+	const FORBIDDEN_TEST_SETTING_ID = 'forbidden_setting';
+
+	/**
+	 * Add custom settings for testing.
+	 *
+	 * @param object $wp_customize WP Customize Manager.
+	 */
+	public function add_test_customize_settings( $wp_customize ) {
+		$wp_customize->add_setting( self::ALLOWED_TEST_SETTING_ID );
+		$wp_customize->add_setting( self::FORBIDDEN_TEST_SETTING_ID, array(
+			'capability' => 'do_not_allow',
+		) );
+		$wp_customize->add_setting( 'foo' );
 	}
 
 	/**
@@ -283,22 +308,6 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$this->assertEquals( 2, count( $response->get_data() ) );
 	}
 
-	const ALLOWED_TEST_SETTING_ID = 'allowed_setting';
-
-	const FORBIDDEN_TEST_SETTING_ID = 'forbidden_setting';
-
-	/**
-	 * Add custom settings for testing.
-	 *
-	 * @param object $wp_customize WP Customize Manager.
-	 */
-	public function add_test_customize_settings( $wp_customize ) {
-		$wp_customize->add_setting( self::ALLOWED_TEST_SETTING_ID );
-		$wp_customize->add_setting( self::FORBIDDEN_TEST_SETTING_ID, array(
-			'capability' => 'do_not_allow',
-		) );
-	}
-
 	/**
 	 * Test the case when user doesn't have permissions for some of the settings.
 	 */
@@ -386,10 +395,12 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	public function test_create_item() {
 		wp_set_current_user( self::$admin_id );
 
+		add_action( 'customize_register', array( $this, 'add_test_customize_settings' ) );
+
 		$request = new WP_REST_Request( 'POST', '/customize/v1/changesets' );
 		$request->set_body_params( array(
 			'settings' => array(
-				'foo' => array(
+				self::ALLOWED_TEST_SETTING_ID => array(
 					'value' => 'bar',
 				),
 			),
@@ -402,7 +413,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$this->assertEquals( 'Title', $data['title']['raw'] );
 
 		$changeset_settings = $data['settings'];
-		$this->assertSame( 'bar', $changeset_settings['foo']['value'] );
+		$this->assertSame( 'bar', $changeset_settings[ self::ALLOWED_TEST_SETTING_ID ]['value'] );
 	}
 
 	/**
@@ -457,7 +468,6 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		wp_set_current_user( self::$admin_id );
 
 		$request = new WP_REST_Request( 'POST', '/customize/v1/changesets' );
-		$request->set_param( 'status', 'publish' );
 		$request->set_body_params( array(
 			'status' => 'publish',
 			'settings' => array(
@@ -468,7 +478,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		) );
 
 		$response = $this->server->dispatch( $request );
-		$this->assertEquals( 200, $response->get_status() );
+		$this->assertEquals( 201, $response->get_status() );
 
 		$this->assertEquals( get_option( 'blogname' ), 'Blogname' );
 	}
