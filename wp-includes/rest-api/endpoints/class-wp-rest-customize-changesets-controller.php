@@ -443,11 +443,15 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 		$post_type = get_post_type_object( $this->post_type );
 
 		if ( ! empty( $request['author'] ) && get_current_user_id() !== $request['author'] && ! current_user_can( $post_type->cap->edit_others_posts ) ) {
-			return new WP_Error( 'rest_cannot_edit_others', __( 'Sorry, you are not allowed to create posts as this user.' ), array( 'status' => rest_authorization_required_code() ) );
+			return new WP_Error( 'rest_cannot_edit_others', __( 'Sorry, you are not allowed to create posts as this user.' ), array(
+				'status' => rest_authorization_required_code(),
+			) );
 		}
 
 		if ( ! current_user_can( $post_type->cap->create_posts ) ) {
-			return new WP_Error( 'rest_cannot_create', __( 'Sorry, you are not allowed to create posts as this user.' ), array( 'status' => rest_authorization_required_code() ) );
+			return new WP_Error( 'rest_cannot_create', __( 'Sorry, you are not allowed to create posts as this user.' ), array(
+				'status' => rest_authorization_required_code(),
+			) );
 		}
 
 		return true;
@@ -477,9 +481,13 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 		if ( is_wp_error( $post_id ) ) {
 
 			if ( 'db_insert_error' === $post_id->get_error_code() ) {
-				$post_id->add_data( array( 'status' => 500 ) );
+				$post_id->add_data( array(
+					'status' => 500,
+				) );
 			} else {
-				$post_id->add_data( array( 'status' => 400 ) );
+				$post_id->add_data( array(
+					'status' => 400,
+				) );
 			}
 
 			return $post_id;
@@ -497,7 +505,6 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 		 * @param bool            $creating True when creating a post, false when updating.
 		 */
 		do_action( "rest_insert_{$this->post_type}", $post, $request, true );
-
 
 		$fields_update = $this->update_additional_fields_for_object( $post, $request );
 
@@ -532,7 +539,9 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 			$post_id = $this->manager->find_changeset_post_id( $request['uuid'] );
 			$existing_post = get_post( $post_id );
 			if ( ! $existing_post ) {
-				return new WP_Error( 'rest_post_invalid_uuid', __( 'Invalid changeset UUID.' ), array( 'status' => 404 ) );
+				return new WP_Error( 'rest_post_invalid_uuid', __( 'Invalid changeset UUID.' ), array(
+					'status' => 404,
+				) );
 			}
 
 			$prepared_post->ID = $existing_post->ID;
@@ -550,6 +559,12 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 		// Settings.
 		if ( isset( $request['settings'] ) ) {
 			$settings = array();
+
+			if ( ! is_array( $request['settings'] ) ) {
+				return new WP_Error( 'invalid_customize_changeset_data', __( 'Invalid customize changeset data.' ), array(
+					'status' => 400,
+				) );
+			}
 			foreach ( $request['settings'] as $setting_id => $params ) {
 
 				// @todo Check how to solve this.
@@ -596,7 +611,9 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 		}
 
 		if ( isset( $request['slug'] ) ) {
-			return new WP_Error( 'cannot_edit_changeset_slug', __( 'Not allowed to edit changeset slug' ), 403 );
+			return new WP_Error( 'cannot_edit_changeset_slug', __( 'Not allowed to edit changeset slug' ), array(
+				'status' => 400,
+			) );
 		}
 
 		// Author.
@@ -607,7 +624,9 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 				$user_obj = get_userdata( $post_author );
 
 				if ( ! $user_obj ) {
-					return new WP_Error( 'rest_invalid_author', __( 'Invalid author ID.' ), array( 'status' => 400 ) );
+					return new WP_Error( 'rest_invalid_author', __( 'Invalid author ID.' ), array(
+						'status' => 400,
+					) );
 				}
 			}
 
