@@ -124,9 +124,12 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	 */
 	public function get_item_schema() {
 
-		$status_enum = array_keys( get_post_stati( array(
-			'internal' => false,
-		) ) );
+		$status_enum = array(
+			'auto-draft',
+			'future',
+			'publish',
+			'private',
+		);
 		$schema = array(
 			'$schema'    => 'http://json-schema.org/schema#',
 			'title'      => 'customize_changeset',
@@ -260,10 +263,12 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 			return false;
 		}
 
+		do_action( 'customize_register', $this->manager );
+
 		// Check permissions per setting.
 		foreach ( $data as $setting_id => $params ) {
 			$setting = $this->manager->get_setting( $setting_id );
-			if ( ! $setting->check_capabilities() ) {
+			if ( ! $setting || ! $setting->check_capabilities() ) {
 				return false;
 			}
 		}
@@ -280,6 +285,8 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
 	public function get_item( $request ) {
+
+		do_action( 'customize_register', $this->manager );
 
 		$changeset_post = $this->get_customize_changeset_post( $request['uuid'] );
 		$data = $this->prepare_item_for_response( $changeset_post, $request );
@@ -320,6 +327,8 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
 	public function get_items( $request ) {
+
+		do_action( 'customize_register', $this->manager );
 
 		// Ensure a search string is set in case the orderby is set to 'relevance'.
 		if ( ! empty( $request['orderby'] ) && 'relevance' === $request['orderby'] && empty( $request['search'] ) ) {
@@ -468,6 +477,8 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	 */
 	public function create_item( $request ) {
 
+		do_action( 'customize_register', $this->manager );
+
 		$prepared_post = $this->prepare_item_for_database( $request );
 
 		if ( is_wp_error( $prepared_post ) ) {
@@ -567,30 +578,18 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 			}
 			foreach ( $request['settings'] as $setting_id => $params ) {
 
-				// @todo Check how to solve this.
-				/*$setting = $this->manager->get_setting( $setting_id );
+				$setting = $this->manager->get_setting( $setting_id );
 				if ( ! $setting ) {
 					return new WP_Error( 'invalid_customize_changeset_data', __( 'Invalid setting.' ), array( 'status' => 400 ) );
 				}
 				if ( ! $setting->check_capabilities() ) {
 					return new WP_Error( 'rest_forbidden', __( 'Sorry, you are not allowed to edit some of the settings.' ), array( 'status' => 403 ) );
-				}*/
+				}
 				$settings[ $setting_id ] = array(
 					'value' => $params['value'],
 				);
 			}
 			$prepared_post->post_content = wp_json_encode( $settings );
-		}
-
-		// Status.
-		if ( isset( $request['status'] ) ) {
-
-			$status_check = $this->sanitize_post_statuses( array( $request['status'] ), $request, $this->post_type );
-			if ( is_wp_error( $status_check ) ) {
-				return $status_check;
-			} else {
-				$prepared_post->post_status = $request['status'];
-			}
 		}
 
 		// Date.
@@ -631,6 +630,22 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 			}
 
 			$prepared_post->post_author = $post_author;
+		}
+
+		// Status.
+		if ( isset( $request['status'] ) ) {
+			// @todo create special case for when status is 'publish'.
+			$status_check = $this->sanitize_post_statuses( $request['status'], $request, $this->post_type );
+			if ( is_wp_error( $status_check ) ) {
+				return $status_check;
+			} else {
+				if ( is_array( $request['status'] ) ) {
+					$status = $request['status'][0];
+				} else {
+					$status = $request['status'];
+				}
+				$prepared_post->post_status = $status;
+			}
 		}
 
 		/**
@@ -797,11 +812,11 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 
 		if ( is_array( $raw_settings ) ) {
 			foreach ( $raw_settings as $setting_id => $params ) {
-				// @todo Check how to solve this.
-				/*$setting = $this->manager->get_setting( $setting_id );
+
+				$setting = $this->manager->get_setting( $setting_id );
 				if ( ! $setting || ! $setting->check_capabilities() ) {
 					continue;
-				}*/
+				}
 				$settings[ $setting_id ] = array(
 					'value' => $params['value'],
 				);
