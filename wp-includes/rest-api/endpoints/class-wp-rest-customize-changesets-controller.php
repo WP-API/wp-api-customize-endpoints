@@ -566,8 +566,11 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 		$prepared_post = new stdClass;
 
 		if ( isset( $request['uuid'] ) ) {
+			$existing_post = null;
 			$post_id = $this->manager->find_changeset_post_id( $request['uuid'] );
-			$existing_post = get_post( $post_id );
+			if ( $post_id ) {
+				$existing_post = get_post( $post_id );
+			}
 			if ( ! $existing_post ) {
 				return new WP_Error( 'rest_post_invalid_uuid', __( 'Invalid changeset UUID.' ), array(
 					'status' => 404,
