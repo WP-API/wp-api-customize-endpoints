@@ -431,6 +431,203 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	}
 
 	/**
+	 * Checks if a given request has access to create a changeset post.
+	 *
+	 * @since 4.?.?
+	 * @access public
+	 *
+	 * @param WP_REST_Request $request Full details about the request.
+	 * @return true|WP_Error True if the request has access to create items, WP_Error object otherwise.
+	 */
+	public function create_item_permissions_check( $request ) {
+		$post_type = get_post_type_object( $this->post_type );
+
+		if ( ! empty( $request['author'] ) && get_current_user_id() !== $request['author'] && ! current_user_can( $post_type->cap->edit_others_posts ) ) {
+			return new WP_Error( 'rest_cannot_edit_others', __( 'Sorry, you are not allowed to create posts as this user.' ), array( 'status' => rest_authorization_required_code() ) );
+		}
+
+		if ( ! current_user_can( $post_type->cap->create_posts ) ) {
+			return new WP_Error( 'rest_cannot_create', __( 'Sorry, you are not allowed to create posts as this user.' ), array( 'status' => rest_authorization_required_code() ) );
+		}
+
+		return true;
+	}
+
+	/**
+	 * Creates a single changeset post.
+	 *
+	 * @since 4.?.?
+	 * @access public
+	 *
+	 * @param WP_REST_Request $request Full details about the request.
+	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
+	 */
+	public function create_item( $request ) {
+
+		$prepared_post = $this->prepare_item_for_database( $request );
+
+		if ( is_wp_error( $prepared_post ) ) {
+			return $prepared_post;
+		}
+
+		$prepared_post->post_type = $this->post_type;
+
+		$post_id = wp_insert_post( wp_slash( (array) $prepared_post ), true );
+
+		if ( is_wp_error( $post_id ) ) {
+
+			if ( 'db_insert_error' === $post_id->get_error_code() ) {
+				$post_id->add_data( array( 'status' => 500 ) );
+			} else {
+				$post_id->add_data( array( 'status' => 400 ) );
+			}
+
+			return $post_id;
+		}
+
+		$post = get_post( $post_id );
+
+		/**
+		 * Fires after a changeset post is created or updated via the REST API.
+		 *
+		 * @since 4.?.?
+		 *
+		 * @param WP_Post         $post     Inserted or updated post object.
+		 * @param WP_REST_Request $request  Request object.
+		 * @param bool            $creating True when creating a post, false when updating.
+		 */
+		do_action( "rest_insert_{$this->post_type}", $post, $request, true );
+
+
+		$fields_update = $this->update_additional_fields_for_object( $post, $request );
+
+		if ( is_wp_error( $fields_update ) ) {
+			return $fields_update;
+		}
+
+		$request->set_param( 'context', 'edit' );
+
+		$response = $this->prepare_item_for_response( $post, $request );
+		$response = rest_ensure_response( $response );
+
+		$response->set_status( 201 );
+		$response->header( 'Location', rest_url( sprintf( '%s/%s/%d', $this->namespace, $this->rest_base, $post->post_name ) ) );
+
+		return $response;
+	}
+
+	/**
+	 * Prepares a customize changeset for create or update.
+	 *
+	 * @since 4.?.?
+	 * @access protected
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return stdClass|WP_Error Post object or WP_Error.
+	 */
+	protected function prepare_item_for_database( $request ) {
+		$prepared_post = new stdClass;
+
+		if ( isset( $request['uuid'] ) ) {
+			$post_id = $this->manager->find_changeset_post_id( $request['uuid'] );
+			$existing_post = get_post( $post_id );
+			if ( ! $existing_post ) {
+				return new WP_Error( 'rest_post_invalid_uuid', __( 'Invalid changeset UUID.' ), array( 'status' => 404 ) );
+			}
+
+			$prepared_post->ID = $existing_post->ID;
+		}
+
+		// Post title.
+		if ( isset( $request['title'] ) ) {
+			if ( is_string( $request['title'] ) ) {
+				$prepared_post->post_title = $request['title'];
+			} elseif ( ! empty( $request['title']['raw'] ) ) {
+				$prepared_post->post_title = $request['title']['raw'];
+			}
+		}
+
+		// Settings.
+		if ( isset( $request['settings'] ) ) {
+			$settings = array();
+			foreach ( $request['settings'] as $setting_id => $params ) {
+
+				// @todo Check how to solve this.
+				/*$setting = $this->manager->get_setting( $setting_id );
+				if ( ! $setting ) {
+					return new WP_Error( 'invalid_customize_changeset_data', __( 'Invalid setting.' ), array( 'status' => 400 ) );
+				}
+				if ( ! $setting->check_capabilities() ) {
+					return new WP_Error( 'rest_forbidden', __( 'Sorry, you are not allowed to edit some of the settings.' ), array( 'status' => 403 ) );
+				}*/
+				$settings[ $setting_id ] = array(
+					'value' => $params['value'],
+				);
+			}
+			$prepared_post->post_content = wp_json_encode( $settings );
+		}
+
+		// Status.
+		if ( isset( $request['status'] ) ) {
+
+			$status_check = $this->sanitize_post_statuses( array( $request['status'] ), $request, $this->post_type );
+			if ( is_wp_error( $status_check ) ) {
+				return $status_check;
+			} else {
+				$prepared_post->post_status = $request['status'];
+			}
+		}
+
+		// Date.
+		if ( ! empty( $request['date'] ) ) {
+			$date_data = rest_get_date_with_gmt( $request['date'] );
+
+			if ( ! empty( $date_data ) ) {
+				list( $prepared_post->post_date, $prepared_post->post_date_gmt ) = $date_data;
+				$prepared_post->edit_date = true;
+			}
+		} elseif ( ! empty( $request['date_gmt'] ) ) {
+			$date_data = rest_get_date_with_gmt( $request['date_gmt'], true );
+
+			if ( ! empty( $date_data ) ) {
+				list( $prepared_post->post_date, $prepared_post->post_date_gmt ) = $date_data;
+				$prepared_post->edit_date = true;
+			}
+		}
+
+		if ( isset( $request['slug'] ) ) {
+			return new WP_Error( 'cannot_edit_changeset_slug', __( 'Not allowed to edit changeset slug' ), 403 );
+		}
+
+		// Author.
+		if ( ! empty( $request['author'] ) ) {
+			$post_author = (int) $request['author'];
+
+			if ( get_current_user_id() !== $post_author ) {
+				$user_obj = get_userdata( $post_author );
+
+				if ( ! $user_obj ) {
+					return new WP_Error( 'rest_invalid_author', __( 'Invalid author ID.' ), array( 'status' => 400 ) );
+				}
+			}
+
+			$prepared_post->post_author = $post_author;
+		}
+
+		/**
+		 * Filters a changeset post before it is inserted via the REST API.
+		 *
+		 * @since 4.?.?
+		 *
+		 * @param stdClass        $prepared_post An object representing a single post prepared
+		 *                                       for inserting or updating the database.
+		 * @param WP_REST_Request $request       Request object.
+		 */
+		return apply_filters( "rest_pre_insert_{$this->post_type}", $prepared_post, $request );
+
+	}
+
+	/**
 	 * Determines the allowed query_vars for a get_items() response and prepares
 	 * them for WP_Query.
 	 *
@@ -576,16 +773,20 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 			'rendered' => get_the_title( $changeset_post->ID ),
 		);
 		remove_filter( 'protected_title_format', array( $this, 'protected_title_format' ) );
-
 		$raw_settings = json_decode( $changeset_post->post_content, true );
 		$settings = array();
 
-		foreach ( $raw_settings as $setting_id => $params ) {
-			$setting = $this->manager->get_setting( $setting_id );
-			if ( ! $setting || ! $setting->check_capabilities() ) {
-				continue;
+		if ( is_array( $raw_settings ) ) {
+			foreach ( $raw_settings as $setting_id => $params ) {
+				// @todo Check how to solve this.
+				/*$setting = $this->manager->get_setting( $setting_id );
+				if ( ! $setting || ! $setting->check_capabilities() ) {
+					continue;
+				}*/
+				$settings[ $setting_id ] = array(
+					'value' => $params['value'],
+				);
 			}
-			$settings[ $setting_id ] = $params['value'];
 		}
 
 		$data['settings'] = $settings;
