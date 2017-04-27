@@ -72,6 +72,9 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		self::$editor_id = $factory->user->create( array(
 			'role' => 'editor',
 		) );
+
+		$editor = new WP_User( self::$editor_id );
+		$editor->add_cap( 'customize' );
 	}
 
 	/**
@@ -381,29 +384,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	 * @covers WP_REST_Customize_Changesets_Controller::create_item()
 	 */
 	public function test_create_item() {
-		$this->markTestIncomplete();
-	}
-
-	/**
-	 * Test tha creating changeset with invalid data fails.
-	 */
-	public function test_create_item_invalid_data() {
-		wp_set_current_user( self::$editor_id );
-
-		$request = new WP_REST_Request( 'POST', '/customize/v1/changesets' );
-		$request->set_body_params( array(
-			'settings' => '[MALFORMED]',
-		) );
-		$response = $this->server->dispatch( $request );
-
-		$this->assertErrorResponse( 'invalid_customize_changeset_data', $response, 400 );
-	}
-
-	/**
-	 * Test that editor can create a changeset.
-	 */
-	public function test_create_item_as_editor() {
-		wp_set_current_user( self::$editor_id );
+		wp_set_current_user( self::$admin_id );
 
 		$request = new WP_REST_Request( 'POST', '/customize/v1/changesets' );
 		$request->set_body_params( array(
@@ -417,11 +398,41 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$response = $this->server->dispatch( $request );
 		$data = $response->get_data();
 
-		$this->assertEquals( 200, $response->get_status() );
-		$this->assertEquals( 'Title', $data['title'] );
+		$this->assertEquals( 201, $response->get_status() );
+		$this->assertEquals( 'Title', $data['title']['raw'] );
 
 		$changeset_settings = $data['settings'];
 		$this->assertSame( 'bar', $changeset_settings['foo']['value'] );
+	}
+
+	/**
+	 * Tests that user without appropriate permissions can't create a changeset as another user.
+	 */
+	public function test_create_item_as_another_user_without_permissions() {
+		wp_set_current_user( self::$editor_id );
+
+		$request = new WP_REST_Request( 'POST', '/customize/v1/changesets' );
+		$request->set_body_params( array(
+			'author' => 1,
+		) );
+		$response = $this->server->dispatch( $request );
+
+		$this->assertErrorResponse( 'rest_cannot_edit_others', $response, 403 );
+	}
+
+	/**
+	 * Test tha creating changeset with invalid data fails.
+	 */
+	public function test_create_item_invalid_data() {
+		wp_set_current_user( self::$admin_id );
+
+		$request = new WP_REST_Request( 'POST', '/customize/v1/changesets' );
+		$request->set_body_params( array(
+			'settings' => '[MALFORMED]',
+		) );
+		$response = $this->server->dispatch( $request );
+
+		$this->assertErrorResponse( 'invalid_customize_changeset_data', $response, 400 );
 	}
 
 	/**
@@ -1724,7 +1735,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		wp_set_current_user( self::$admin_id );
 		$request = new WP_REST_Request( 'DELETE', sprintf( '/customize/v1/changesets/%s', wp_generate_uuid4() ) );
 		$response = $this->server->dispatch( $request );
-		$this->assertErrorResponse( 'rest_post_invalid_id', $response, 404 );
+		$this->assertErrorResponse( 'rest_post_invalid_uuid', $response, 404 );
 	}
 
 	/**
