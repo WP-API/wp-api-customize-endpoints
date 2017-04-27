@@ -447,7 +447,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		) );
 		$response = $this->server->dispatch( $request );
 
-		$this->assertErrorResponse( 'rest_forbidden', $response, 403 );
+		$this->assertErrorResponse( 'rest_cannot_create', $response, 403 );
 	}
 
 	/**
@@ -486,7 +486,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$request->set_param( 'status', $bad_status );
 
 		$response = $this->server->dispatch( $request );
-		$this->assertErrorResponse( 'bad_customize_changeset_status', $response, 400 );
+		$this->assertErrorResponse( 'rest_invalid_param', $response, 400 );
 	}
 
 	/**
@@ -506,7 +506,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 			),
 		) );
 		$response = $this->server->dispatch( $request );
-		$this->assertErrorResponse( 'rest_forbidden', $response, 403 );
+		$this->assertErrorResponse( 'rest_cannot_create', $response, 403 );
 		$user->remove_cap( 'edit_theme_options' );
 	}
 
@@ -517,10 +517,10 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		wp_set_current_user( self::$admin_id );
 
 		$request = new WP_REST_Request( 'POST', '/customize/v1/changesets' );
-		$request->set_param( 'name', 'slug' );
+		$request->set_param( 'slug', 'slug' );
 
 		$response = $this->server->dispatch( $request );
-		$this->assertErrorResponse( 'invalid_customize_changeset_data', $response, 400 );
+		$this->assertErrorResponse( 'cannot_edit_changeset_slug', $response, 400 );
 	}
 
 	/**
