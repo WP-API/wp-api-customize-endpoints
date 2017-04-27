@@ -487,7 +487,7 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 		}
 
 		// Special case for publishing.
-		$is_publish = ( 'publish' === $prepared_post->status || 'future' === $prepared_post->status );
+		$is_publish = ( 'publish' === $prepared_post->post_status || 'future' === $prepared_post->post_status );
 		if ( $is_publish && ! current_user_can( get_post_type_object( 'customize_changeset' )->cap->publish_posts ) ) {
 			return new WP_Error( 'changeset_publish_unauthorized', __( 'Sorry, you are not allowed to publish customize changesets.' ), array(
 				'status' => 403,
@@ -495,7 +495,7 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 		}
 
 		if ( $is_publish ) {
-			$prepared_post->status = 'auto-draft';
+			$prepared_post->post_status = 'auto-draft';
 		}
 
 		$prepared_post->post_type = $this->post_type;
@@ -665,6 +665,8 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 				}
 				$prepared_post->post_status = $status;
 			}
+		} else {
+			$prepared_post->post_status = 'auto-draft';
 		}
 
 		/**
