@@ -1747,7 +1747,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		wp_set_current_user( self::$subscriber_id );
 		$request = new WP_REST_Request( 'DELETE', sprintf( '/customize/v1/changesets/%s', wp_generate_uuid4() ) );
 		$response = $this->server->dispatch( $request );
-		$this->assertErrorResponse( 'rest_cannot_delete', $response, 403 );
+		$this->assertErrorResponse( 'rest_post_invalid_uuid', $response, 404 );
 	}
 
 	/**
