@@ -94,4 +94,42 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 			'schema' => array( $this, 'get_public_item_schema' ),
 		) );
 	}
+
+	/**
+	 * Check whether a request can delete the specified changeset.
+	 *
+	 * @since ?.?.?
+	 * @access public
+	 *
+	 * @param WP_REST_Request $request Full details about the request.
+	 * @return bool|WP_Error True if the request has access to delete the item, otherwise false or WP_Error object.
+	 */
+	public function delete_item_permissions_check( $request ) {
+		// Will $wp_customize need to be globalized?
+		$wp_customize = new WP_Customize_Manager( array(
+			'changeset_uuid' => $request['uuid'],
+		) );
+
+		if ( ! $wp_customize->changeset_post_id() ) {
+			return new WP_Error(
+				'rest_post_invalid_uuid',
+				__( 'Invalid changeset UUID.' ),
+				array(
+					'status' => 404,
+				)
+			);
+		}
+
+		if ( ! current_user_can( 'delete_post', $wp_customize->changeset_post_id() ) ) {
+			return new WP_Error(
+				'rest_cannot_delete',
+				__( 'Sorry, you are not allowed to delete this item.' ),
+				array(
+					'status' => rest_authorization_required_code(),
+				)
+			);
+		}
+
+		return true;
+	}
 }
