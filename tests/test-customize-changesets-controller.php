@@ -1614,24 +1614,16 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	public function test_delete_item_without_permission() {
 		wp_set_current_user( self::$subscriber_id );
 
-		$uuid = wp_generate_uuid4();
-
-		$changeset_id = self::factory()->post->create( array(
-			'post_name' => $uuid,
-			'post_type' => 'customize_changeset',
-		) );
-
 		$manager = new WP_Customize_Manager();
+		$manager->save_changeset_post();
 
-		$this->assertSame( $changeset_id, $manager->find_changeset_post_id( $uuid ) );
-
-		$request = new WP_REST_Request( 'DELETE', sprintf( '/customize/v1/changesets/%s', $uuid ) );
+		$request = new WP_REST_Request( 'DELETE', sprintf( '/customize/v1/changesets/%s', $manager->changeset_uuid() ) );
 		$request->set_param( 'force', false );
 		$response = $this->server->dispatch( $request );
 
 		$this->assertErrorResponse( 'rest_cannot_delete', $response, 403 );
 
-		$this->assertNotSame( 'trash', get_post_status( $manager->find_changeset_post_id( $uuid ) ) );
+		$this->assertNotSame( 'trash', get_post_status( $manager->changeset_post_id() ) );
 	}
 
 	/**
