@@ -312,8 +312,12 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	 */
 	public function test_get_items_by_author() {
 		wp_set_current_user( self::$admin_id );
-		$user_1_id = $this->factory()->user->create( array( 'role' => 'administrator' ) );
-		$user_2_id = $this->factory()->user->create( array( 'role' => 'administrator' ) );
+		$user_1_id = $this->factory()->user->create( array(
+			'role' => 'administrator',
+		) );
+		$user_2_id = $this->factory()->user->create( array(
+			'role' => 'administrator',
+		) );
 
 		$this->factory()->post->create( array(
 			'post_type' => 'customize_changeset',
@@ -428,6 +432,56 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$data = $response->get_data();
 		$this->assertEquals( 1, count( $data ) );
+	}
+
+	/**
+	 * Filter query args.
+	 *
+	 * @param array $args Query args.
+	 * @return array mixed Args.
+	 */
+	public function filter_rest_customize_changeset_query( $args ) {
+		$args['post_status'] = array( 'draft' );
+		return $args;
+	}
+
+	/**
+	 * Test get items with filter_rest_customize_changeset_query filter.
+	 */
+	public function test_get_items_with_filter() {
+		wp_set_current_user( self::$admin_id );
+
+		$draft_id = wp_generate_uuid4();
+		$this->factory()->post->create( array(
+			'post_type' => 'customize_changeset',
+			'post_name' => $draft_id,
+			'post_status' => 'draft',
+			'post_content' => '{}',
+		) );
+		$this->factory()->post->create( array(
+			'post_type' => 'customize_changeset',
+			'post_name' => wp_generate_uuid4(),
+			'post_status' => 'auto-draft',
+			'post_content' => '{}',
+		) );
+
+		add_filter( 'rest_customize_changeset_query', array( $this, 'filter_rest_customize_changeset_query' ), 10, 1 );
+
+		$request = new WP_REST_Request( 'GET', sprintf( '/customize/v1/changesets' ) );
+		$request->set_query_params( array(
+			'status' => 'auto-draft',
+		) );
+		$response = $this->server->dispatch( $request );
+
+		$this->assertNotInstanceOf( 'WP_Error', $response );
+
+		$response = rest_ensure_response( $response );
+
+		$data = $response->get_data();
+		$this->assertEquals( 1, count( $data ) );
+		$this->assertSame( $draft_id, $data[0]['slug'] );
+
+		remove_filter( 'rest_customize_changeset_query', array( $this, 'filter_rest_customize_changeset_query' ) );
 	}
 
 	/**
