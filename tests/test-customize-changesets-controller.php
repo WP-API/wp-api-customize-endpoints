@@ -278,7 +278,6 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$this->assertErrorResponse( 'rest_forbidden_context', $response, 403 );
 	}
 
-	// @todo get items by author and other query params.
 	/**
 	 * Test get_items.
 	 *
@@ -306,6 +305,129 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$response = rest_ensure_response( $response );
 		$this->assertEquals( 200, $response->get_status() );
 		$this->assertEquals( 2, count( $response->get_data() ) );
+	}
+
+	/**
+	 * Test getting items by author.
+	 */
+	public function test_get_items_by_author() {
+		wp_set_current_user( self::$admin_id );
+		$user_1_id = $this->factory()->user->create( array( 'role' => 'administrator' ) );
+		$user_2_id = $this->factory()->user->create( array( 'role' => 'administrator' ) );
+
+		$this->factory()->post->create( array(
+			'post_type' => 'customize_changeset',
+			'post_name' => wp_generate_uuid4(),
+			'post_status' => 'auto-draft',
+			'post_content' => '{}',
+			'post_title' => 'Title 1',
+			'post_author' => $user_1_id,
+		) );
+		$this->factory()->post->create( array(
+			'post_type' => 'customize_changeset',
+			'post_name' => wp_generate_uuid4(),
+			'post_status' => 'auto-draft',
+			'post_content' => '{}',
+			'post_title' => 'Title 2',
+			'post_author' => $user_2_id,
+		) );
+
+		$request = new WP_REST_Request( 'GET', sprintf( '/customize/v1/changesets' ) );
+		$request->set_query_params( array(
+			'author' => $user_1_id,
+		) );
+
+		$response = $this->server->dispatch( $request );
+
+		$this->assertNotInstanceOf( 'WP_Error', $response );
+
+		$response = rest_ensure_response( $response );
+
+		$data = $response->get_data();
+		$this->assertEquals( 1, count( $data ) );
+		$this->assertSame( 'Title 1', $data[0]['title']['rendered'] );
+
+		$request = new WP_REST_Request( 'GET', sprintf( '/customize/v1/changesets' ) );
+		$request->set_query_params( array(
+			'author_exclude' => $user_1_id,
+		) );
+		$response = $this->server->dispatch( $request );
+
+		$this->assertNotInstanceOf( 'WP_Error', $response );
+
+		$response = rest_ensure_response( $response );
+
+		$data = $response->get_data();
+		$this->assertEquals( 1, count( $data ) );
+		$this->assertSame( 'Title 2', $data[0]['title']['rendered'] );
+
+	}
+
+	/**
+	 * Test getting item by status.
+	 */
+	public function test_get_item_by_status() {
+		wp_set_current_user( self::$admin_id );
+
+		$this->factory()->post->create( array(
+			'post_type' => 'customize_changeset',
+			'post_name' => wp_generate_uuid4(),
+			'post_status' => 'draft',
+			'post_content' => '{}',
+		) );
+		$this->factory()->post->create( array(
+			'post_type' => 'customize_changeset',
+			'post_name' => wp_generate_uuid4(),
+			'post_status' => 'auto-draft',
+			'post_content' => '{}',
+		) );
+
+		$request = new WP_REST_Request( 'GET', sprintf( '/customize/v1/changesets' ) );
+		$request->set_query_params( array(
+			'status' => 'draft',
+		) );
+		$response = $this->server->dispatch( $request );
+
+		$this->assertNotInstanceOf( 'WP_Error', $response );
+
+		$response = rest_ensure_response( $response );
+
+		$data = $response->get_data();
+		$this->assertEquals( 1, count( $data ) );
+		$this->assertSame( 'draft', $data[0]['status'] );
+	}
+
+	/**
+	 * Test getting items with per_page param.
+	 */
+	public function test_get_items_by_per_page() {
+		wp_set_current_user( self::$admin_id );
+
+		$this->factory()->post->create( array(
+			'post_type' => 'customize_changeset',
+			'post_name' => wp_generate_uuid4(),
+			'post_status' => 'auto-draft',
+			'post_content' => '{}',
+		) );
+		$this->factory()->post->create( array(
+			'post_type' => 'customize_changeset',
+			'post_name' => wp_generate_uuid4(),
+			'post_status' => 'auto-draft',
+			'post_content' => '{}',
+		) );
+
+		$request = new WP_REST_Request( 'GET', sprintf( '/customize/v1/changesets' ) );
+		$request->set_query_params( array(
+			'per_page' => '1',
+		) );
+		$response = $this->server->dispatch( $request );
+
+		$this->assertNotInstanceOf( 'WP_Error', $response );
+
+		$response = rest_ensure_response( $response );
+
+		$data = $response->get_data();
+		$this->assertEquals( 1, count( $data ) );
 	}
 
 	/**

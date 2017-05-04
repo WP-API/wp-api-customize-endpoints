@@ -26,6 +26,20 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	protected $post_type = 'customize_changeset';
 
 	/**
+	 * Allowed changeset statuses.
+	 *
+	 * @since 4.?.?
+	 * @var array
+	 */
+	protected $statuses = array(
+		'auto-draft',
+		'draft',
+		'future',
+		'publish',
+		'private',
+	);
+
+	/**
 	 * Constructor.
 	 *
 	 * @since 4.7.0
@@ -42,7 +56,6 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	 * @param string $changeset_uuid UUID.
 	 * @return WP_Customize_Manager Manager.
 	 * @global WP_Customize_Manager $wp_customize
-	 * @throws Exception When an unexpected UUID is supplied.
 	 */
 	public function ensure_customize_manager( $changeset_uuid = null ) {
 		global $wp_customize;
@@ -131,13 +144,6 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	 */
 	public function get_item_schema() {
 
-		$status_enum = array(
-			'auto-draft',
-			'draft',
-			'future',
-			'publish',
-			'private',
-		);
 		$schema = array(
 			'$schema'    => 'http://json-schema.org/schema#',
 			'title'      => 'customize_changeset',
@@ -174,7 +180,7 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 				'slug'            => array(
 					'description' => __( 'Unique Customize Changeset identifier, uuid' ),
 					'type'        => 'string',
-					'context'     => array( 'view', 'edit', 'embed' ),
+					'context'     => array( 'view', 'embed' ),
 					'arg_options' => array(
 						'sanitize_callback' => array( $this, 'sanitize_slug' ),
 					),
@@ -183,7 +189,7 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 				'status'          => array(
 					'description' => __( 'A named status for the object.' ),
 					'type'        => 'string',
-					'enum'        => $status_enum,
+					'enum'        => $this->statuses,
 					'context'     => array( 'view', 'edit' ),
 					'arg_options' => array(
 						'sanitize_callback' => array( $this, 'sanitize_post_statuses' ),
@@ -368,7 +374,7 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 		}
 
 		// Ensure per_page parameter overrides any provided posts_per_page filter.
-		if ( isset( $registered['per_page'] ) ) {
+		if ( isset( $request['per_page'] ) ) {
 			$args['posts_per_page'] = $request['per_page'];
 		}
 
@@ -705,6 +711,7 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 			$orderby_mappings = array(
 				'id'   => 'ID',
 				'slug' => 'post_name',
+				'title' => 'post_title',
 			);
 
 			if ( isset( $orderby_mappings[ $request['orderby'] ] ) ) {
@@ -750,7 +757,7 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 			'description'       => __( 'Limit result set to posts assigned one or more statuses.' ),
 			'type'              => 'array',
 			'items'             => array(
-				'enum'          => array_merge( array_keys( get_post_stati() ), array( 'any' ) ),
+				'enum'          => array_merge( $this->statuses, array( 'any' ) ),
 				'type'          => 'string',
 			),
 			'sanitize_callback' => array( $this, 'sanitize_post_statuses' ),
@@ -822,15 +829,14 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 		$data['slug'] = $changeset_post->post_name;
 		$data['status'] = $changeset_post->post_status;
 
-		add_filter( 'protected_title_format', array( $this, 'protected_title_format' ) );
 		$data['title'] = array(
 			'raw'      => $changeset_post->post_title,
 			'rendered' => get_the_title( $changeset_post->ID ),
 		);
-		remove_filter( 'protected_title_format', array( $this, 'protected_title_format' ) );
-		$raw_settings = json_decode( $changeset_post->post_content, true );
-		$settings = array();
 
+		$raw_settings = json_decode( $changeset_post->post_content, true );
+
+		$settings = array();
 		if ( is_array( $raw_settings ) ) {
 			foreach ( $raw_settings as $setting_id => $params ) {
 
