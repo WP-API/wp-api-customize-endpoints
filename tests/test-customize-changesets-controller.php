@@ -173,9 +173,9 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$this->assertArrayHasKey( 'settings', $properties ); // Instead of content.
 		$this->assertSame( 'object', $properties['settings']['type'] );
 
-		$this->assertArrayHasKey( 'slug', $properties );
-		$this->assertSame( 'string', $properties['slug']['type'] );
-		$this->assertArrayHasKey( 'sanitize_callback', $properties['slug']['arg_options'] );
+		$this->assertArrayHasKey( 'uuid', $properties );
+		$this->assertSame( 'string', $properties['uuid']['type'] );
+		$this->assertArrayHasKey( 'sanitize_callback', $properties['uuid']['arg_options'] );
 
 		$this->assertArrayHasKey( 'status', $properties );
 		$this->assertSame( 'string', $properties['status']['type'] );
@@ -204,7 +204,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$response = rest_ensure_response( $response );
 		$this->assertEquals( 200, $response->get_status() );
 		$data = $response->get_data();
-		$this->assertSame( $manager->changeset_uuid(), $data['slug'] );
+		$this->assertSame( $manager->changeset_uuid(), $data['uuid'] );
 	}
 
 	/**
@@ -479,7 +479,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$data = $response->get_data();
 		$this->assertEquals( 1, count( $data ) );
-		$this->assertSame( $draft_id, $data[0]['slug'] );
+		$this->assertSame( $draft_id, $data[0]['uuid'] );
 
 		remove_filter( 'rest_customize_changeset_query', array( $this, 'filter_rest_customize_changeset_query' ) );
 	}

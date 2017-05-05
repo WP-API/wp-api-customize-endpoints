@@ -35,8 +35,8 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 		'auto-draft',
 		'draft',
 		'future',
+		'pending',
 		'publish',
-		'private',
 	);
 
 	/**
@@ -177,22 +177,13 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 					'type'        => 'object',
 					'context'     => array( 'view', 'edit' ),
 				),
-				'slug'            => array(
-					'description' => __( 'Unique Customize Changeset identifier, uuid' ),
-					'type'        => 'string',
-					'context'     => array( 'view', 'embed' ),
-					'arg_options' => array(
-						'sanitize_callback' => array( $this, 'sanitize_slug' ),
-					),
-					'readonly'   => true,
-				),
 				'status'          => array(
 					'description' => __( 'A named status for the object.' ),
 					'type'        => 'string',
 					'enum'        => $this->statuses,
 					'context'     => array( 'view', 'edit' ),
 					'arg_options' => array(
-						'sanitize_callback' => array( $this, 'sanitize_post_statuses' ),
+						'sanitize_callback' => array( $this, 'sanitize_post_status' ),
 					),
 				),
 				'title'           => array(
@@ -215,6 +206,15 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 							'readonly'    => true,
 						),
 					),
+				),
+				'uuid'            => array(
+					'description' => __( 'Unique Customize Changeset identifier, uuid' ),
+					'type'        => 'string',
+					'context'     => array( 'view', 'embed' ),
+					'arg_options' => array(
+						'sanitize_callback' => array( $this, 'sanitize_slug' ),
+					),
+					'readonly'   => true,
 				),
 			),
 		);
@@ -494,9 +494,7 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	 */
 	public function create_item( $request ) {
 
-		if ( empty( $request['uuid'] ) ) {
-			$request['uuid'] = wp_generate_uuid4();
-		}
+		$request['uuid'] = wp_generate_uuid4();
 
 		$prepared_post = $this->prepare_item_for_database( $request );
 
@@ -588,6 +586,8 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 
 		// Settings.
 		if ( isset( $request['settings'] ) ) {
+			$data = $manager->changeset_data();
+			$current_user_id = get_current_user_id();
 			$settings = array();
 
 			if ( ! is_array( $request['settings'] ) ) {
@@ -608,12 +608,29 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 						'status' => 403,
 					) );
 				}
-				$settings[ $setting_id ] = array(
-					'value' => $params['value'],
+
+				if ( isset( $data[ $setting_id ] ) ) {
+					// Merge any additional setting params that have been supplied with the existing params.
+					$merged_setting_params = array_merge( $data[ $setting_id ], $params );
+
+					// Skip updating setting params if unchanged (ensuring the user_id is not overwritten).
+					if ( $data[ $setting_id ] === $merged_setting_params ) {
+						continue;
+					}
+				} else {
+					$merged_setting_params = $params;
+				}
+
+				$settings[ $setting_id ] = array_merge(
+					$merged_setting_params,
+					array(
+						'type' => $setting->type,
+						'user_id' => $current_user_id,
+					)
 				);
 			}
 			$prepared_post->post_content = wp_json_encode( $settings );
-		}
+		} // End if().
 
 		// Date.
 		if ( ! empty( $request['date'] ) ) {
@@ -710,7 +727,7 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 		if ( isset( $query_args['orderby'] ) && isset( $request['orderby'] ) ) {
 			$orderby_mappings = array(
 				'id'   => 'ID',
-				'slug' => 'post_name',
+				'uuid' => 'post_name',
 				'title' => 'post_title',
 			);
 
@@ -785,7 +802,7 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 				'relevance',
 				'id',
 				'title',
-				'slug',
+				'uuid',
 			),
 		);
 
@@ -826,7 +843,7 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 		}
 		$data['date_gmt'] = $this->prepare_date_response( $post_date_gmt );
 
-		$data['slug'] = $changeset_post->post_name;
+		$data['uuid'] = $changeset_post->post_name;
 		$data['status'] = $changeset_post->post_status;
 
 		$data['title'] = array(
@@ -844,9 +861,7 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 				if ( ! $setting || ! $setting->check_capabilities() ) {
 					continue;
 				}
-				$settings[ $setting_id ] = array(
-					'value' => $params['value'],
-				);
+				$settings[ $setting_id ] = $params;
 			}
 		}
 
@@ -947,6 +962,26 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 		}
 
 		return $statuses;
+	}
+
+	/**
+	 * Sanitizes and validates the status.
+	 *
+	 * @since 4.?.?
+	 * @access public
+	 *
+	 * @param  string $status Post status.
+	 * @return string|WP_Error Valid status, otherwise WP_Error object.
+	 */
+	public function sanitize_post_status( $status ) {
+
+		$status = sanitize_text_field( $status );
+		if ( in_array( $status, $this->statuses, true ) ) {
+			return $status;
+		}
+		return new WP_Error( 'rest_incorrect_status', __( 'Incorrect status format.' ), array(
+			'status' => rest_authorization_required_code(),
+		) );
 	}
 
 	/**
