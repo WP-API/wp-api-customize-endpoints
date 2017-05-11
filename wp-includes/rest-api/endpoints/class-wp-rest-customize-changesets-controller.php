@@ -210,7 +210,7 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 				'uuid'            => array(
 					'description' => __( 'Unique Customize Changeset identifier, uuid' ),
 					'type'        => 'string',
-					'context'     => array( 'view', 'embed' ),
+					'context'     => array( 'view', 'edit', 'embed' ),
 					'arg_options' => array(
 						'sanitize_callback' => array( $this, 'sanitize_slug' ),
 					),
@@ -236,7 +236,9 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 		$post_type_obj = get_post_type_object( $this->post_type );
 		$changeset_post = $this->get_customize_changeset_post( $request['uuid'] );
 		if ( ! $changeset_post ) {
-			return false;
+			return new WP_Error( 'rest_post_invalid_uuid', __( 'Invalid changeset UUID.' ), array(
+				'status' => 404,
+			) );
 		}
 		$data = array();
 		if ( isset( $request['customize_changeset_data'] ) ) {
@@ -261,32 +263,6 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	 */
 	protected function check_read_permission( $post_type_obj, $changeset_post ) {
 		return current_user_can( $post_type_obj->cap->read_post, $changeset_post->ID );
-	}
-
-	/**
-	 * Check if user has permissions to edit all the values.
-	 *
-	 * @param object $changeset_post Changeset post object.
-	 * @param array  $data Array of data to change.
-	 * @return bool If has permissions.
-	 */
-	protected function check_update_permission( $changeset_post, $data ) {
-		$post_type = get_post_type_object( $this->post_type );
-
-		if ( ! current_user_can( $post_type->cap->edit_post, $changeset_post->ID ) ) {
-			return false;
-		}
-
-		$manager = $this->ensure_customize_manager( $changeset_post->post_name );
-
-		// Check permissions per setting.
-		foreach ( $data as $setting_id => $params ) {
-			$setting = $manager->get_setting( $setting_id );
-			if ( ! $setting || ! $setting->check_capabilities() ) {
-				return false;
-			}
-		}
-		return true;
 	}
 
 	/**
@@ -457,6 +433,130 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	}
 
 	/**
+	 * Checks if a given request has access to update a changeset.
+	 *
+	 * @since 4.?.?
+	 * @access public
+	 *
+	 * @param WP_REST_Request $request Full details about the request.
+	 * @return bool|WP_Error True if the request has read access for the item, WP_Error object otherwise.
+	 */
+	public function update_item_permissions_check( $request ) {
+		$changeset_post = $this->get_customize_changeset_post( $request['uuid'] );
+		if ( ! $changeset_post ) {
+
+			// @todo Should here be a special error in case the changeset was alread published?
+			return new WP_Error( 'rest_post_invalid_uuid', __( 'Invalid changeset UUID.' ), array(
+				'status' => 404,
+			) );
+		}
+
+		$data = array();
+		if ( isset( $request['customize_changeset_data'] ) ) {
+			$data = $request['customize_changeset_data'];
+		}
+
+		if ( isset( $request['slug'] ) ) {
+			return new WP_Error( 'cannot_edit_changeset_slug', __( 'Not allowed to edit changeset slug' ), array(
+				'status' => 403,
+			) );
+		}
+
+		if ( ! $this->check_update_permission( $changeset_post, $data ) ) {
+			return new WP_Error( 'rest_cannot_edit', __( 'Sorry, you are not allowed to update this changeset post.' ), array(
+				'status' => 403,
+			) );
+		}
+
+		$post_type_obj = get_post_type_object( $this->post_type );
+
+		if ( ! empty( $request['author'] ) && get_current_user_id() !== $request['author'] && ! current_user_can( $post_type_obj->cap->edit_others_posts ) ) {
+			return new WP_Error( 'rest_cannot_edit_others', __( 'Sorry, you are not allowed to update changeset posts as this user.' ), array(
+				'status' => rest_authorization_required_code(),
+			) );
+		}
+
+		return true;
+	}
+
+	/**
+	 * Check if user has permissions to edit all the values.
+	 *
+	 * @param object $changeset_post Changeset post object.
+	 * @param array  $data Array of data to change.
+	 * @return bool If has permissions.
+	 */
+	protected function check_update_permission( $changeset_post, $data ) {
+		$post_type = get_post_type_object( $this->post_type );
+
+		if ( ! current_user_can( $post_type->cap->edit_post, $changeset_post->ID ) ) {
+			return false;
+		}
+
+		$manager = $this->ensure_customize_manager( $changeset_post->post_name );
+
+		// Check permissions per setting.
+		foreach ( $data as $setting_id => $params ) {
+			$setting = $manager->get_setting( $setting_id );
+			if ( ! $setting || ! $setting->check_capabilities() ) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Updates a single changeset post.
+	 *
+	 * @since 4.?.?
+	 * @access public
+	 *
+	 * @param WP_REST_Request $request Full details about the request.
+	 * @return WP_Error|WP_REST_Response WP_Error or REST response.
+	 */
+	public function update_item( $request ) {
+
+		$changeset_post = $this->prepare_item_for_database( $request );
+
+		if ( is_wp_error( $changeset_post ) ) {
+			return $changeset_post;
+		}
+
+		// convert the post object to an array, otherwise wp_update_post will expect non-escaped input.
+		$post_id = wp_update_post( wp_slash( (array) $changeset_post ), true );
+
+		if ( is_wp_error( $post_id ) ) {
+			if ( 'db_update_error' === $post_id->get_error_code() ) {
+				$post_id->add_data( array(
+					'status' => 500,
+				) );
+			} else {
+				$post_id->add_data( array(
+					'status' => 400,
+				) );
+			}
+			return $post_id;
+		}
+
+		$changeset_post = get_post( $post_id );
+
+		/* This action is documented in lib/endpoints/class-wp-rest-controller.php */
+		do_action( "rest_insert_{$this->post_type}", $changeset_post, $request, false );
+
+		$fields_update = $this->update_additional_fields_for_object( $changeset_post, $request );
+
+		if ( is_wp_error( $fields_update ) ) {
+			return $fields_update;
+		}
+
+		$request->set_param( 'context', 'edit' );
+
+		$response = $this->prepare_item_for_response( $changeset_post, $request );
+
+		return rest_ensure_response( $response );
+	}
+
+	/**
 	 * Checks if a given request has access to create a changeset post.
 	 *
 	 * @since 4.?.?
@@ -466,11 +566,24 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	 * @return true|WP_Error True if the request has access to create items, WP_Error object otherwise.
 	 */
 	public function create_item_permissions_check( $request ) {
+
+		if ( ! empty( $request['uuid'] ) ) {
+			return new WP_Error( 'rest_post_exists', __( 'Cannot create existing post.' ), array(
+				'status' => 400,
+			) );
+		}
+
 		$post_type = get_post_type_object( $this->post_type );
 
 		if ( ! empty( $request['author'] ) && get_current_user_id() !== $request['author'] && ! current_user_can( $post_type->cap->edit_others_posts ) ) {
 			return new WP_Error( 'rest_cannot_edit_others', __( 'Sorry, you are not allowed to create posts as this user.' ), array(
 				'status' => rest_authorization_required_code(),
+			) );
+		}
+
+		if ( isset( $request['slug'] ) ) {
+			return new WP_Error( 'cannot_edit_changeset_slug', __( 'Not allowed to edit changeset slug' ), array(
+				'status' => 403,
 			) );
 		}
 
@@ -571,9 +684,14 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	protected function prepare_item_for_database( $request ) {
 		$prepared_post = new stdClass;
 
+		$existing_post = $this->get_customize_changeset_post( $request['uuid'] );
+
 		$manager = $this->ensure_customize_manager( $request['uuid'] );
 		$prepared_post->ID = $manager->changeset_post_id();
-		$prepared_post->post_name = $request['uuid'];
+
+		if ( ! $existing_post ) {
+			$prepared_post->post_name = $request['uuid'];
+		}
 
 		// Post title.
 		if ( isset( $request['title'] ) ) {
@@ -610,6 +728,13 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 				}
 
 				if ( isset( $data[ $setting_id ] ) ) {
+
+					// If the value of the setting is null, this should be removed from the changeset. @todo confirm logic.
+					if ( null === $data[ $setting_id ] ) {
+						unset( $settings[ $setting_id ] );
+						continue;
+					}
+
 					// Merge any additional setting params that have been supplied with the existing params.
 					$merged_setting_params = array_merge( $data[ $setting_id ], $params );
 
@@ -628,8 +753,10 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 						'user_id' => $current_user_id,
 					)
 				);
-			}
+			} // End foreach().
+
 			$prepared_post->post_content = wp_json_encode( $settings );
+
 		} // End if().
 
 		// Date.
@@ -647,12 +774,6 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 				list( $prepared_post->post_date, $prepared_post->post_date_gmt ) = $date_data;
 				$prepared_post->edit_date = true;
 			}
-		}
-
-		if ( isset( $request['slug'] ) ) {
-			return new WP_Error( 'cannot_edit_changeset_slug', __( 'Not allowed to edit changeset slug' ), array(
-				'status' => 400,
-			) );
 		}
 
 		// Author.
@@ -686,7 +807,15 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 				}
 				$prepared_post->post_status = $status;
 			}
-		} else {
+
+			if ( 'publish' === $prepared_post->post_status ) {
+
+				// Change date to current date if publishing.
+				$date_data = rest_get_date_with_gmt( date( 'Y-m-d H:i:s', time() ), true );
+				list( $prepared_post->post_date, $prepared_post->post_date_gmt ) = $date_data;
+				$prepared_post->edit_date = true;
+			}
+		} elseif ( ! $existing_post ) {
 			$prepared_post->post_status = 'auto-draft';
 		}
 
@@ -893,13 +1022,17 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	 *
 	 * @param string      $date_gmt GMT publication time.
 	 * @param string|null $date     Optional. Local publication time. Default null.
-	 * @return string|null ISO8601/RFC3339 formatted datetime.
+	 * @return string|null Formatted datetime.
 	 */
 	protected function prepare_date_response( $date_gmt, $date = null ) {
 
 		// Use the date if passed.
 		if ( isset( $date ) ) {
-			return mysql_to_rfc3339( $date );
+			if ( DateTime::createFromFormat( 'Y-m-d H:i:s', $date ) ) {
+				return $date;
+			} else {
+				return date( 'Y-m-d H:i:s', time() );
+			}
 		}
 
 		// Return null if $date_gmt is empty/zeros.
@@ -907,8 +1040,11 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 			return null;
 		}
 
-		// Return the formatted datetime.
-		return mysql_to_rfc3339( $date_gmt );
+		if ( DateTime::createFromFormat( 'Y-m-d H:i:s', $date_gmt ) ) {
+			return $date_gmt;
+		} else {
+			return date( 'Y-m-d H:i:s', time() );
+		}
 	}
 
 	/**
@@ -991,7 +1127,12 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	 * @return string|WP_Error Date string or error.
 	 */
 	public function sanitize_datetime( $date ) {
-		if ( DateTime::createFromFormat( 'Y-m-d g:i a', $date ) ) {
+		if ( DateTime::createFromFormat( 'Y-m-d H:i:s', $date ) ) {
+			if ( DateTime::createFromFormat( 'Y-m-d H:i:s', $date ) < date( 'Y-m-d H:i:s' ) ) {
+				return new WP_Error( 'rest_incorrect_date', __( 'Incorrect date, date cannot be in past.' ), array(
+					'status' => 402,
+				) );
+			}
 			return $date;
 		} else {
 			return new WP_Error( 'rest_incorrect_date', __( 'Incorrect date format' ), array(
