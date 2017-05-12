@@ -1013,7 +1013,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		) );
 		$response = $this->server->dispatch( $request );
 
-		$this->assertErrorResponse( 'cannot_create_changeset_post', $response, 403 );
+		$this->assertErrorResponse( 'rest_cannot_create', $response, 403 );
 
 		$manager = new WP_Customize_Manager();
 		$this->assertEmpty( $manager->find_changeset_post_id( $uuid ) );
@@ -1090,10 +1090,10 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		) );
 		$response = $this->server->dispatch( $request );
 
-		$this->assertSame( 200, $response->get_status() );
+		$this->assertSame( 201, $response->get_status() );
 
 		$data = $response->get_data();
-		$this->assertSame( $data['title'], $title );
+		$this->assertSame( $title, $data['title']['raw'] );
 
 		$manager = new WP_Customize_Manager();
 		$this->assertSame( get_post( $manager->find_changeset_post_id( $uuid ) )->post_title, $title );
@@ -1124,30 +1124,6 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$data = $response->get_data();
 		$this->assertSame( $title_after, $data['title']['raw'] );
 		$this->assertSame( get_post( $manager->changeset_post_id() )->post_title, $title_after );
-	}
-
-	/**
-	 * Test that update_item() rejects creating changesets with nonexistant and disallowed post statuses.
-	 *
-	 * @dataProvider data_bad_customize_changeset_status
-	 *
-	 * @param string $bad_status Bad status.
-	 */
-	public function test_update_item_create_bad_customize_changeset_status( $bad_status ) {
-		wp_set_current_user( self::$admin_id );
-
-		$uuid = wp_generate_uuid4();
-
-		$request = new WP_REST_Request( 'PUT', sprintf( '/customize/v1/changesets/%s', $uuid ) );
-		$request->set_body_params( array(
-			'status' => $bad_status,
-		) );
-		$response = $this->server->dispatch( $request );
-
-		$this->assertErrorResponse( 'bad_customize_changeset_status', $response, 400 );
-
-		$manager = new WP_Customize_Manager();
-		$this->assertEmpty( $manager->find_changeset_post_id( $uuid ) );
 	}
 
 	/**
@@ -1205,7 +1181,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		) );
 		$response = $this->server->dispatch( $request );
 
-		$this->assertErrorResponse( 'changeset_publish_unauthorized', $response, 403 );
+		$this->assertErrorResponse( 'rest_cannot_create', $response, 403 );
 
 		$manager = new WP_Customize_Manager();
 		$this->assertFalse( get_post_status( $manager->find_changeset_post_id( $uuid ) ) );
@@ -1214,7 +1190,6 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	/**
 	 * Test that update_item() rejects publishing changesets if the user lacks capabilities.
 	 *
-	 * @todo Customize_changeset posts permission is 'customize' for everything. Not sure for which case this test is necessary.
 	 * @dataProvider data_publish_changeset_status
 	 *
 	 * @param array $publish_status Status to publish the changeset.
@@ -1257,19 +1232,20 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	public function test_update_item_changeset_already_published( $published_status ) {
 		wp_set_current_user( self::$admin_id );
 
-		$manager = new WP_Customize_Manager();
-		$manager->save_changeset_post( array(
-			'data' => array(
-				'basic_option' => array(
-					'value' => 'Foo',
-				),
+		$changeset_data_before = array(
+			self::ALLOWED_TEST_SETTING_ID => array(
+				'value' => 'Foo',
 			),
-			'status' => $published_status,
+		);
+		$uuid = wp_generate_uuid4();
+		$this->factory()->post->create( array(
+			'post_type' => 'customize_changeset',
+			'post_name' => $uuid,
+			'post_status' => $published_status,
+			'post_content' => wp_json_encode( $changeset_data_before ),
 		) );
 
-		$changeset_data_before = $manager->changeset_data();
-
-		$request = new WP_REST_Request( 'PUT', sprintf( '/customize/v1/changesets/%s', $manager->changeset_uuid() ) );
+		$request = new WP_REST_Request( 'PUT', sprintf( '/customize/v1/changesets/%s', $uuid ) );
 		$request->set_body_params( array(
 			'settings' => array(
 				'basic_option' => array(
@@ -1280,7 +1256,11 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$response = $this->server->dispatch( $request );
 
 		$this->assertErrorResponse( 'rest_post_invalid_uuid', $response );
-		$this->assertSame( $changeset_data_before, $manager->changeset_data() );
+
+		$manager = new WP_Customize_Manager( array(
+			'uuid' => $uuid,
+		) );
+		$this->assertNull( $manager->changeset_post_id() );
 	}
 
 	/**
@@ -1309,7 +1289,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		) );
 		$response = $this->server->dispatch( $request );
 
-		$this->assertSame( 200, $response->get_status() );
+		$this->assertSame( 201, $response->get_status() );
 
 		$data = $response->get_data();
 		$this->assertSame( $data['date_gmt'], $date_gmt );
@@ -1408,12 +1388,12 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$request = new WP_REST_Request( 'PUT', sprintf( '/customize/v1/changesets/%s', $uuid ) );
 		$request->set_body_params( array(
-			'date_gmt' => ( strtotime( $this_year ) + YEAR_IN_SECONDS ),
+			'date_gmt' => date( 'Y-m-d H:i:s', ( time() + YEAR_IN_SECONDS ) ),
 			'status' => 'publish',
 		) );
 		$response = $this->server->dispatch( $request );
 
-		$this->assertSame( 200, $response->get_status() );
+		$this->assertSame( 201, $response->get_status() );
 
 		$data = $response->get_data();
 		$this->assertSame( $this_year, date( 'Y', strtotime( $data['date_gmt'] ) ) );
@@ -1467,7 +1447,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		) );
 		$response = $this->server->dispatch( $request );
 
-		$this->assertErrorResponse( 'not_future_date', $response );
+		$this->assertErrorResponse( 'rest_invalid_param', $response );
 
 		$manager = new WP_Customize_Manager();
 		$this->assertNull( $manager->find_changeset_post_id( $uuid ) );
@@ -1497,7 +1477,6 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	/**
 	 * Test that update_item() rejects scheduling a changeset when it has a past date.
 	 *
-	 * @todo Verify that this is true -- not clear why should be be rejected.
 	 */
 	public function test_update_item_not_future_date_with_future_status() {
 		wp_set_current_user( self::$admin_id );
@@ -1559,7 +1538,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		) );
 		$response = $this->server->dispatch( $request );
 
-		$this->assertErrorResponse( 'bad_customize_changeset_date', $response, 400 );
+		$this->assertErrorResponse( 'rest_invalid_param', $response, 400 );
 
 		$manager = new WP_Customize_Manager();
 		$this->assertNull( $manager->find_changeset_post_id( $uuid ) );
@@ -1589,7 +1568,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	/**
 	 * Tests that creating a published changeset with update_item() returns a 'publish' status.
 	 */
-	public function test_update_item_create_status_is_publish_after_publish() {
+	public function test_update_item_create_status_is_trash_after_publish() {
 		if ( post_type_supports( 'customize_changeset', 'revisions' ) ) {
 			$this->markTestSkipped( 'Changesets are not trashed when revisions are enabled.' );
 		}
@@ -1604,10 +1583,10 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		) );
 		$response = $this->server->dispatch( $request );
 
-		$this->assertSame( 200, $response->get_status() );
+		$this->assertSame( 201, $response->get_status() );
 
 		$data = $response->get_data();
-		$this->assertSame( 'publish', $data['status'] );
+		$this->assertSame( 'trash', $data['status'] );
 	}
 
 	/**
@@ -1630,7 +1609,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$response = $this->server->dispatch( $request );
 
 		$data = $response->get_data();
-		$this->assertSame( 'publish', $data['status'] );
+		$this->assertSame( 'trash', $data['status'] );
 	}
 
 	/**
@@ -1653,7 +1632,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		) );
 		$response = $this->server->dispatch( $request );
 
-		$this->assertSame( 200, $response->get_status() );
+		$this->assertSame( 201, $response->get_status() );
 		$this->assertSame( $blogname_after, get_option( 'blogname' ) );
 	}
 
@@ -1802,15 +1781,11 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		) );
 		$response = $this->server->dispatch( $request );
 
-		$error_code = 'changeset_post_save_failure';
-
-		$this->assertErrorResponse( $error_code, $response );
-
-		$error_data = $response->as_error()->get_error_data();
-		$this->assertSame( 'empty_content', $error_data[ $error_code ][ $error_code ] );
+		$this->assertErrorResponse( 'empty_content', $response );
 
 		$manager = new WP_Customize_Manager();
 		$this->assertEmpty( $manager->find_changeset_post_id( $uuid ) );
+
 	}
 
 	/**
@@ -1832,12 +1807,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$request->set_body_params( $params );
 		$response = $this->server->dispatch( $request );
 
-		$error_code = 'changeset_post_save_failure';
-
-		$this->assertErrorResponse( $error_code, $response );
-
-		$error_data = $response->as_error()->get_error_data();
-		$this->assertSame( 'empty_content', $error_data[ $error_code ][ $error_code ] );
+		$this->assertErrorResponse( 'rest_invalid_param', $response );
 
 		$post = get_post( $manager->changeset_post_id() );
 		$this->assertNotSame( get_post_status( $post ), $params['status'] );

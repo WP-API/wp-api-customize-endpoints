@@ -212,7 +212,7 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 					'type'        => 'string',
 					'context'     => array( 'view', 'edit', 'embed' ),
 					'arg_options' => array(
-						'sanitize_callback' => array( $this, 'sanitize_slug' ),
+						'sanitize_callback' => array( $this, 'sanitize_uuid' ),
 					),
 					'readonly'   => true,
 				),
@@ -445,10 +445,11 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 		$changeset_post = $this->get_customize_changeset_post( $request['uuid'] );
 		if ( ! $changeset_post ) {
 
-			// @todo Should here be a special error in case the changeset was alread published?
-			return new WP_Error( 'rest_post_invalid_uuid', __( 'Invalid changeset UUID.' ), array(
+			// @todo Check for already published changesets first.
+			return $this->create_item_permissions_check( $request );
+			/*return new WP_Error( 'rest_post_invalid_uuid', __( 'Invalid changeset UUID.' ), array(
 				'status' => 404,
-			) );
+			) );*/
 		}
 
 		$data = array();
@@ -516,6 +517,17 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	 */
 	public function update_item( $request ) {
 
+		$existing_post = $this->get_customize_changeset_post( $request['uuid'] );
+		if ( ! $existing_post ) {
+			return $this->create_item( $request );
+		} else {
+			if ( 'publish' === $existing_post->post_status || 'trash' === $existing_post->post_status ) {
+				return new WP_Error( 'rest_post_invalid_uuid', __( 'Sorry, invalid UUID.' ), array(
+					'status' => 402,
+				) );
+			}
+		}
+
 		$changeset_post = $this->prepare_item_for_database( $request );
 
 		if ( is_wp_error( $changeset_post ) ) {
@@ -568,9 +580,16 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	public function create_item_permissions_check( $request ) {
 
 		if ( ! empty( $request['uuid'] ) ) {
-			return new WP_Error( 'rest_post_exists', __( 'Cannot create existing post.' ), array(
+			if ( is_wp_error( $this->sanitize_uuid( $request['uuid'] ) ) ) {
+				return $this->sanitize_uuid( $request['uuid'] );
+			}
+			$existing_post = $this->get_customize_changeset_post( $request['uuid'] );
+			if ( $existing_post ) {
+				return $this->update_item_permissions_check( $request );
+			}
+			/*return new WP_Error( 'rest_post_exists', __( 'Cannot create existing post.' ), array(
 				'status' => 400,
-			) );
+			) );*/
 		}
 
 		$post_type = get_post_type_object( $this->post_type );
@@ -607,7 +626,9 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	 */
 	public function create_item( $request ) {
 
-		$request['uuid'] = wp_generate_uuid4();
+		if ( ! isset( $request['uuid'] ) ) {
+			$request['uuid'] = wp_generate_uuid4();
+		}
 
 		$prepared_post = $this->prepare_item_for_database( $request );
 
@@ -814,10 +835,22 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 				$date_data = rest_get_date_with_gmt( date( 'Y-m-d H:i:s', time() ), true );
 				list( $prepared_post->post_date, $prepared_post->post_date_gmt ) = $date_data;
 				$prepared_post->edit_date = true;
+			} elseif ( 'future' === $prepared_post->post_status ) {
+				if ( property_exists( $prepared_post, 'post_date' ) ) {
+					$date = DateTime::createFromFormat( 'Y-m-d H:i:s', $prepared_post->post_date );
+				} else {
+					$date = DateTime::createFromFormat( 'Y-m-d H:i:s', $existing_post->post_date );
+				}
+
+				if ( $date < date( 'Y-m-d H:i:s' ) ) {
+					return new WP_Error( 'rest_invalid_param', __( 'Incorrect date, date cannot be in past for future post.' ), array(
+						'status' => 402,
+					) );
+				}
 			}
 		} elseif ( ! $existing_post ) {
 			$prepared_post->post_status = 'auto-draft';
-		}
+		} // End if().
 
 		/**
 		 * Filters a changeset post before it is inserted via the REST API.
@@ -1054,11 +1087,8 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	 * @return array|null|WP_Post Post object.
 	 */
 	protected function get_customize_changeset_post( $uuid ) {
-		$args = array(
-			'changeset_uuid' => $uuid,
-		);
-		$customize_manager = new WP_Customize_manager( $args );
-		return get_post( $customize_manager->changeset_post_id() );
+		$customize_manager = new WP_Customize_manager();
+		return get_post( $customize_manager->find_changeset_post_id( $uuid ) );
 	}
 
 	/**
@@ -1139,5 +1169,21 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 				'status' => 402,
 			) );
 		}
+	}
+
+	/**
+	 * Sanitize UUID.
+	 *
+	 * @param string $uuid UUID.
+	 * @return string|WP_Error Sanitized string / WP_Error if wrong format.
+	 */
+	public function sanitize_uuid( $uuid ) {
+		if ( ! preg_match( '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/', $uuid ) ) {
+			return new WP_Error( 'rest_incorrect_uuid', __( 'Incorrect UUID.' ), array(
+				'status' => 402,
+			) );
+		}
+
+		return $uuid;
 	}
 }
