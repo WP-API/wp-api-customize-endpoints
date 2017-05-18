@@ -447,9 +447,6 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 
 			// @todo Check for already published changesets first.
 			return $this->create_item_permissions_check( $request );
-			/*return new WP_Error( 'rest_post_invalid_uuid', __( 'Invalid changeset UUID.' ), array(
-				'status' => 404,
-			) );*/
 		}
 
 		$data = array();
@@ -493,7 +490,6 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 		if ( ! current_user_can( $post_type->cap->edit_post, $changeset_post->ID ) ) {
 			return false;
 		}
-
 		$manager = $this->ensure_customize_manager( $changeset_post->post_name );
 
 		// Check permissions per setting.
@@ -587,9 +583,6 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 			if ( $existing_post ) {
 				return $this->update_item_permissions_check( $request );
 			}
-			/*return new WP_Error( 'rest_post_exists', __( 'Cannot create existing post.' ), array(
-				'status' => 400,
-			) );*/
 		}
 
 		$post_type = get_post_type_object( $this->post_type );
@@ -783,18 +776,13 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 		// Date.
 		if ( ! empty( $request['date'] ) ) {
 			$date_data = rest_get_date_with_gmt( $request['date'] );
-
-			if ( ! empty( $date_data ) ) {
-				list( $prepared_post->post_date, $prepared_post->post_date_gmt ) = $date_data;
-				$prepared_post->edit_date = true;
-			}
 		} elseif ( ! empty( $request['date_gmt'] ) ) {
 			$date_data = rest_get_date_with_gmt( $request['date_gmt'], true );
+		}
 
-			if ( ! empty( $date_data ) ) {
-				list( $prepared_post->post_date, $prepared_post->post_date_gmt ) = $date_data;
-				$prepared_post->edit_date = true;
-			}
+		if ( isset( $date_data ) ) {
+			list( $prepared_post->post_date, $prepared_post->post_date_gmt ) = $date_data;
+			$prepared_post->edit_date = true;
 		}
 
 		// Author.
@@ -837,12 +825,12 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 				$prepared_post->edit_date = true;
 			} elseif ( 'future' === $prepared_post->post_status ) {
 				if ( property_exists( $prepared_post, 'post_date' ) ) {
-					$date = DateTime::createFromFormat( 'Y-m-d H:i:s', $prepared_post->post_date );
+					$date = $prepared_post->post_date;
 				} else {
-					$date = DateTime::createFromFormat( 'Y-m-d H:i:s', $existing_post->post_date );
+					$date = $existing_post->post_date;
 				}
 
-				if ( $date < date( 'Y-m-d H:i:s' ) ) {
+				if ( $date <= get_gmt_from_date( date( 'Y-m-d H:i:s', time() ) ) ) {
 					return new WP_Error( 'rest_invalid_param', __( 'Incorrect date, date cannot be in past for future post.' ), array(
 						'status' => 402,
 					) );
@@ -851,6 +839,27 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 		} elseif ( ! $existing_post ) {
 			$prepared_post->post_status = 'auto-draft';
 		} // End if().
+
+		// Setting a date for auto-draft is forbidden.
+		if ( isset( $date_data ) && $existing_post ) {
+			if (
+				(
+					property_exists( $prepared_post, 'post_status' )
+					&&
+					'auto-draft' === $prepared_post->post_status
+				)
+				||
+				(
+					! property_exists( $prepared_post, 'post_status' )
+					&&
+					'auto-draft' === $existing_post->post_status
+				)
+			) {
+				return new WP_Error( 'rest_invalid_param', __( 'Sorry, cannot supply date for auto-draft changeset.' ), array(
+					'status' => 402,
+				) );
+			}
+		}
 
 		/**
 		 * Filters a changeset post before it is inserted via the REST API.
@@ -1158,7 +1167,7 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	 */
 	public function sanitize_datetime( $date ) {
 		if ( DateTime::createFromFormat( 'Y-m-d H:i:s', $date ) ) {
-			if ( DateTime::createFromFormat( 'Y-m-d H:i:s', $date ) < date( 'Y-m-d H:i:s' ) ) {
+			if ( $date < get_gmt_from_date( date( 'Y-m-d H:i:s', time() ) ) ) {
 				return new WP_Error( 'rest_incorrect_date', __( 'Incorrect date, date cannot be in past.' ), array(
 					'status' => 402,
 				) );
