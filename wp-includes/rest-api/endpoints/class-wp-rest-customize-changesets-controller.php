@@ -48,6 +48,10 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	public function __construct() {
 		$this->namespace = 'customize/v1';
 		$this->rest_base = 'changesets';
+
+		if ( ! class_exists( 'WP_Customize_Manager' ) ) {
+			require_once( ABSPATH . WPINC . '/class-wp-customize-manager.php' );
+		}
 	}
 
 	/**
@@ -60,7 +64,8 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	public function ensure_customize_manager( $changeset_uuid = null ) {
 		global $wp_customize;
 		if ( empty( $wp_customize ) || $wp_customize->changeset_uuid() !== $changeset_uuid ) {
-			$wp_customize = new WP_Customize_Manager( compact( 'changeset_uuid' ) ); // WPCS: global override ok.
+
+			$wp_customize = new \WP_Customize_Manager( compact( 'changeset_uuid' ) ); // WPCS: global override ok.
 
 			/** This action is documented in wp-includes/class-wp-customize-manager.php */
 			do_action( 'customize_register', $wp_customize );
@@ -1096,7 +1101,7 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	 * @return array|null|WP_Post Post object.
 	 */
 	protected function get_customize_changeset_post( $uuid ) {
-		$customize_manager = new WP_Customize_manager();
+		$customize_manager = new WP_Customize_Manager();
 		return get_post( $customize_manager->find_changeset_post_id( $uuid ) );
 	}
 
