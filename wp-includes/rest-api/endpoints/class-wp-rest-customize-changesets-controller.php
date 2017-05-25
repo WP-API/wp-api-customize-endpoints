@@ -136,157 +136,6 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	}
 
 	/**
-	 * Deletes a changeset.
-	 *
-	 * @since ?.?.?
-	 * @access public
-	 *
-	 * @param WP_REST_Request $request Full details about the request.
-	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
-	 */
-	public function delete_item( $request ) {
-		global $wpdb;
-
-		$manager = $this->ensure_customize_manager( $request['uuid'] );
-
-		if ( ! $manager->changeset_post_id() ) {
-			return new WP_Error(
-				'rest_post_invalid_uuid',
-				__( 'Invalid changeset UUID.' ),
-				array(
-					'status' => 404,
-				)
-			);
-		}
-
-		$post = get_post( $manager->changeset_post_id() );
-
-		if ( $request['force'] ) {
-			$previous = $this->prepare_item_for_response( $post, $request );
-
-			// TODO: At this point $wp_customize will no longer have up-to-date post data.
-			$result = wp_delete_post( $manager->changeset_post_id(), true );
-
-			if ( ! $result ) {
-				return new WP_Error(
-					'rest_cannot_delete',
-					__( 'The post cannot be deleted.' ),
-					array(
-						'status' => 500,
-					)
-				);
-			}
-
-			$response = new WP_REST_Response();
-			$response->set_data( array( 'deleted' => true, 'previous' => $previous->get_data() ) );
-			return $response;
-		}
-
-		// TODO (?): Not filterable a la WP_REST_Posts_Controller.
-		if ( ! ( EMPTY_TRASH_DAYS > 0 ) ) {
-			return new WP_Error(
-				'rest_trash_not_supported',
-				__( 'The post does not support trashing. Set force=true to delete.' ),
-				array(
-					'status' => 501,
-				)
-			);
-		}
-
-		if ( 'trash' === get_post_status( $manager->changeset_post_id() ) ) {
-			return new WP_Error(
-				'rest_already_trashed',
-				__( 'The changeset has already been deleted.' ),
-				array(
-					'status' => 410,
-				)
-			);
-		}
-
-		// TODO: Ripped straight from _wp_customize_publish_changeset().
-
-		/** This action is documented in wp-includes/post.php */
-		do_action( 'wp_trash_post', $manager->changeset_post_id() );
-
-		add_post_meta( $manager->changeset_post_id(), '_wp_trash_meta_status', $post->post_status );
-		add_post_meta( $manager->changeset_post_id(), '_wp_trash_meta_time', time() );
-
-		$old_status = $post->post_status;
-		$new_status = 'trash';
-		$wpdb->update( $wpdb->posts, array( 'post_status' => $new_status ), array( 'ID' => $manager->changeset_post_id() ) );
-		clean_post_cache( $manager->changeset_post_id() );
-
-		$post->post_status = $new_status;
-		wp_transition_post_status( $new_status, $old_status, $post );
-
-		/** This action is documented in wp-includes/post.php */
-		do_action( 'edit_post', $manager->changeset_post_id(), $post );
-
-		/** This action is documented in wp-includes/post.php */
-		do_action( "save_post_{$post->post_type}", $manager->changeset_post_id(), $post, true );
-
-		/** This action is documented in wp-includes/post.php */
-		do_action( 'save_post', $manager->changeset_post_id(), $post, true );
-
-		/** This action is documented in wp-includes/post.php */
-		do_action( 'wp_insert_post', $manager->changeset_post_id(), $post, true );
-
-		/** This action is documented in wp-includes/post.php */
-		do_action( 'trashed_post', $manager->changeset_post_id() );
-
-		// TODO: At this point $wp_customize will no longer have up-to-date post data.
-		$result = get_post( $manager->changeset_post_id() );
-
-		if ( ! $result ) {
-			return new WP_Error(
-				'rest_cannot_delete',
-				__( 'The post cannot be deleted.' ),
-				array(
-					'status' => 500,
-				)
-			);
-		}
-
-		return $this->prepare_item_for_response( $result, $request );
-	}
-
-	/**
-	 * Check whether a request can delete the specified changeset.
-	 *
-	 * @since ?.?.?
-	 * @access public
-	 *
-	 * @param WP_REST_Request $request Full details about the request.
-	 * @return bool|WP_Error True if the request has access to delete the item, otherwise false or WP_Error object.
-	 */
-	public function delete_item_permissions_check( $request ) {
-		$manager = $this->ensure_customize_manager( $request['uuid'] );
-
-		if ( ! $manager->changeset_post_id() ) {
-			return new WP_Error(
-				'rest_post_invalid_uuid',
-				__( 'Invalid changeset UUID.' ),
-				array(
-					'status' => 404,
-				)
-			);
-		}
-
-		// TODO: Use 'delete_post'.
-		if ( ! current_user_can( 'customize' ) ) {
-			return new WP_Error(
-				'rest_cannot_delete',
-				__( 'Sorry, you are not allowed to delete this item.' ),
-				array(
-					'status' => rest_authorization_required_code(),
-				)
-			);
-		}
-
-		return true;
-	}
-
-	/**
 	 * Retrieves the changeset's schema, conforming to JSON Schema.
 	 *
 	 * @since 4.?.?
@@ -709,6 +558,157 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 		$response->header( 'Location', rest_url( sprintf( '%s/%s/%d', $this->namespace, $this->rest_base, $post->post_name ) ) );
 
 		return $response;
+	}
+
+	/**
+	 * Deletes a changeset.
+	 *
+	 * @since ?.?.?
+	 * @access public
+	 *
+	 * @param WP_REST_Request $request Full details about the request.
+	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
+	 */
+	public function delete_item( $request ) {
+		global $wpdb;
+
+		$manager = $this->ensure_customize_manager( $request['uuid'] );
+
+		if ( ! $manager->changeset_post_id() ) {
+			return new WP_Error(
+				'rest_post_invalid_uuid',
+				__( 'Invalid changeset UUID.' ),
+				array(
+					'status' => 404,
+				)
+			);
+		}
+
+		$post = get_post( $manager->changeset_post_id() );
+
+		if ( $request['force'] ) {
+			$previous = $this->prepare_item_for_response( $post, $request );
+
+			// TODO: At this point $wp_customize will no longer have up-to-date post data.
+			$result = wp_delete_post( $manager->changeset_post_id(), true );
+
+			if ( ! $result ) {
+				return new WP_Error(
+					'rest_cannot_delete',
+					__( 'The post cannot be deleted.' ),
+					array(
+						'status' => 500,
+					)
+				);
+			}
+
+			$response = new WP_REST_Response();
+			$response->set_data( array( 'deleted' => true, 'previous' => $previous->get_data() ) );
+			return $response;
+		}
+
+		// TODO (?): Not filterable a la WP_REST_Posts_Controller.
+		if ( ! ( EMPTY_TRASH_DAYS > 0 ) ) {
+			return new WP_Error(
+				'rest_trash_not_supported',
+				__( 'The post does not support trashing. Set force=true to delete.' ),
+				array(
+					'status' => 501,
+				)
+			);
+		}
+
+		if ( 'trash' === get_post_status( $manager->changeset_post_id() ) ) {
+			return new WP_Error(
+				'rest_already_trashed',
+				__( 'The changeset has already been deleted.' ),
+				array(
+					'status' => 410,
+				)
+			);
+		}
+
+		// TODO: Ripped straight from _wp_customize_publish_changeset().
+
+		/** This action is documented in wp-includes/post.php */
+		do_action( 'wp_trash_post', $manager->changeset_post_id() );
+
+		add_post_meta( $manager->changeset_post_id(), '_wp_trash_meta_status', $post->post_status );
+		add_post_meta( $manager->changeset_post_id(), '_wp_trash_meta_time', time() );
+
+		$old_status = $post->post_status;
+		$new_status = 'trash';
+		$wpdb->update( $wpdb->posts, array( 'post_status' => $new_status ), array( 'ID' => $manager->changeset_post_id() ) );
+		clean_post_cache( $manager->changeset_post_id() );
+
+		$post->post_status = $new_status;
+		wp_transition_post_status( $new_status, $old_status, $post );
+
+		/** This action is documented in wp-includes/post.php */
+		do_action( 'edit_post', $manager->changeset_post_id(), $post );
+
+		/** This action is documented in wp-includes/post.php */
+		do_action( "save_post_{$post->post_type}", $manager->changeset_post_id(), $post, true );
+
+		/** This action is documented in wp-includes/post.php */
+		do_action( 'save_post', $manager->changeset_post_id(), $post, true );
+
+		/** This action is documented in wp-includes/post.php */
+		do_action( 'wp_insert_post', $manager->changeset_post_id(), $post, true );
+
+		/** This action is documented in wp-includes/post.php */
+		do_action( 'trashed_post', $manager->changeset_post_id() );
+
+		// TODO: At this point $wp_customize will no longer have up-to-date post data.
+		$result = get_post( $manager->changeset_post_id() );
+
+		if ( ! $result ) {
+			return new WP_Error(
+				'rest_cannot_delete',
+				__( 'The post cannot be deleted.' ),
+				array(
+					'status' => 500,
+				)
+			);
+		}
+
+		return $this->prepare_item_for_response( $result, $request );
+	}
+
+	/**
+	 * Check whether a request can delete the specified changeset.
+	 *
+	 * @since ?.?.?
+	 * @access public
+	 *
+	 * @param WP_REST_Request $request Full details about the request.
+	 * @return bool|WP_Error True if the request has access to delete the item, otherwise false or WP_Error object.
+	 */
+	public function delete_item_permissions_check( $request ) {
+		$manager = $this->ensure_customize_manager( $request['uuid'] );
+
+		if ( ! $manager->changeset_post_id() ) {
+			return new WP_Error(
+				'rest_post_invalid_uuid',
+				__( 'Invalid changeset UUID.' ),
+				array(
+					'status' => 404,
+				)
+			);
+		}
+
+		// TODO: Use 'delete_post'.
+		if ( ! current_user_can( 'customize' ) ) {
+			return new WP_Error(
+				'rest_cannot_delete',
+				__( 'Sorry, you are not allowed to delete this item.' ),
+				array(
+					'status' => rest_authorization_required_code(),
+				)
+			);
+		}
+
+		return true;
 	}
 
 	/**
