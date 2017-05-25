@@ -164,6 +164,7 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 		if ( $request['force'] ) {
 			$previous = $this->prepare_item_for_response( $post, $request );
 
+			// TODO: At this point $wp_customize will no longer have up-to-date post data.
 			$result = wp_delete_post( $manager->changeset_post_id(), true );
 
 			if ( ! $result ) {
