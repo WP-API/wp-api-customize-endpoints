@@ -161,7 +161,8 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 			);
 		}
 
-		if ( ! current_user_can( 'delete_post', $wp_customize->changeset_post_id() ) ) {
+		// TODO: Use 'delete_post'.
+		if ( ! current_user_can( 'customize' ) ) {
 			return new WP_Error(
 				'rest_cannot_delete',
 				__( 'Sorry, you are not allowed to delete this item.' ),
