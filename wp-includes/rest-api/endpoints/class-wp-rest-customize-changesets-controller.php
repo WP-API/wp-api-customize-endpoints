@@ -64,8 +64,8 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	public function ensure_customize_manager( $changeset_uuid = null ) {
 		global $wp_customize;
 		if ( empty( $wp_customize ) || $wp_customize->changeset_uuid() !== $changeset_uuid ) {
-
-			$wp_customize = new \WP_Customize_Manager( compact( 'changeset_uuid' ) ); // WPCS: global override ok.
+			$skip_setting_preview = true;
+			$wp_customize = new \WP_Customize_Manager( compact( 'changeset_uuid', 'skip_setting_preview' ) ); // WPCS: global override ok.
 
 			/** This action is documented in wp-includes/class-wp-customize-manager.php */
 			do_action( 'customize_register', $wp_customize );
@@ -449,9 +449,19 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	public function update_item_permissions_check( $request ) {
 		$changeset_post = $this->get_customize_changeset_post( $request['uuid'] );
 		if ( ! $changeset_post ) {
-
-			// @todo Check for already published changesets first.
 			return $this->create_item_permissions_check( $request );
+		}
+
+		if ( $this->is_published_changeset( $changeset_post ) ) {
+			return new WP_Error( 'rest_cannot_edit', __( 'Sorry, the customize changeset is already published.' ), array(
+				'status' => 403,
+			) );
+		}
+
+		if ( isset( $request['status'] ) && 'auto-draft' === $request['status'] ) {
+			return new WP_Error( 'rest_cannot_edit', __( 'Sorry, invalid status.' ), array(
+				'status' => 403,
+			) );
 		}
 
 		$data = array();
@@ -521,12 +531,6 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 		$existing_post = $this->get_customize_changeset_post( $request['uuid'] );
 		if ( ! $existing_post ) {
 			return $this->create_item( $request );
-		} else {
-			if ( 'publish' === $existing_post->post_status || 'trash' === $existing_post->post_status ) {
-				return new WP_Error( 'rest_post_invalid_uuid', __( 'Sorry, invalid UUID.' ), array(
-					'status' => 402,
-				) );
-			}
 		}
 
 		$changeset_post = $this->prepare_item_for_database( $request );
@@ -581,11 +585,19 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	public function create_item_permissions_check( $request ) {
 
 		if ( ! empty( $request['uuid'] ) ) {
+
 			if ( is_wp_error( $this->sanitize_uuid( $request['uuid'] ) ) ) {
 				return $this->sanitize_uuid( $request['uuid'] );
 			}
 			$existing_post = $this->get_customize_changeset_post( $request['uuid'] );
 			if ( $existing_post ) {
+				if ( $this->is_published_changeset( $existing_post ) ) {
+
+					return new WP_Error( 'rest_cannot_create', __( 'Sorry, changeset post is already published.' ), array(
+						'status' => rest_authorization_required_code(),
+					) );
+
+				}
 				return $this->update_item_permissions_check( $request );
 			}
 		}
@@ -626,6 +638,11 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 
 		if ( ! isset( $request['uuid'] ) ) {
 			$request['uuid'] = wp_generate_uuid4();
+		} else {
+			$existing_post = $this->get_customize_changeset_post( $request['uuid'] );
+			if ( $existing_post ) {
+				return $this->update_item( $request );
+			}
 		}
 
 		$prepared_post = $this->prepare_item_for_database( $request );
@@ -725,7 +742,6 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 		if ( isset( $request['settings'] ) ) {
 			$data = $manager->changeset_data();
 			$current_user_id = get_current_user_id();
-			$settings = array();
 
 			if ( ! is_array( $request['settings'] ) ) {
 				return new WP_Error( 'invalid_customize_changeset_data', __( 'Invalid customize changeset data.' ), array(
@@ -748,10 +764,16 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 
 				if ( isset( $data[ $setting_id ] ) ) {
 
-					// If the value of the setting is null, this should be removed from the changeset. @todo confirm logic.
-					if ( null === $data[ $setting_id ] ) {
-						unset( $settings[ $setting_id ] );
+					// If the value of the setting is null, this should be removed from the changeset.
+					if ( null === $params || 'null' === $params ) {
+						unset( $data[ $setting_id ] );
 						continue;
+					}
+
+					if ( isset( $params['value'] ) && ( 'null' === $params['value'] || null === $params['value'] ) ) {
+						return new WP_Error( 'invalid_customize_changeset_data', __( 'Invalid setting value.' ), array(
+							'status' => 400,
+						) );
 					}
 
 					// Merge any additional setting params that have been supplied with the existing params.
@@ -765,7 +787,7 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 					$merged_setting_params = $params;
 				}
 
-				$settings[ $setting_id ] = array_merge(
+				$data[ $setting_id ] = array_merge(
 					$merged_setting_params,
 					array(
 						'type' => $setting->type,
@@ -774,7 +796,7 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 				);
 			} // End foreach().
 
-			$prepared_post->post_content = wp_json_encode( $settings );
+			$prepared_post->post_content = wp_json_encode( $data );
 
 		} // End if().
 
@@ -1101,8 +1123,26 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	 * @return array|null|WP_Post Post object.
 	 */
 	protected function get_customize_changeset_post( $uuid ) {
-		$customize_manager = new WP_Customize_Manager();
-		return get_post( $customize_manager->find_changeset_post_id( $uuid ) );
+		$skip_setting_preview = true;
+		$customize_manager = new WP_Customize_Manager( compact( 'skip_setting_preview' ) );
+		$post = get_post( $customize_manager->find_changeset_post_id( $uuid ) );
+
+		return $post;
+	}
+
+	/**
+	 * Check if customize changeset is already published.
+	 *
+	 * @param object $changeset WP_Post object.
+	 * @return bool If the customize changeset is already published.
+	 */
+	protected function is_published_changeset( $changeset ) {
+		$is_published = (
+			'trash' === $changeset->post_status
+			||
+			'publish' === $changeset->post_status
+		);
+		return $is_published;
 	}
 
 	/**
