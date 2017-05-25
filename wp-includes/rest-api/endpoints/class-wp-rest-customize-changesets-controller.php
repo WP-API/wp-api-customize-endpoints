@@ -1038,6 +1038,5 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 				'status' => 402,
 			) );
 		}
->>>>>>> master
 	}
 }
