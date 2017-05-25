@@ -913,16 +913,18 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 		$data    = $this->add_additional_fields_to_object( $data, $request );
 		$data    = $this->filter_response_by_context( $data, $context );
 
+		$response = rest_ensure_response( $data );
+
 		/**
 		 * Filters the customize changeset data for a response.
 		 *
 		 * @since 4.?.?
 		 *
-		 * @param WP_REST_Response $response The response object.
-		 * @param WP_Post          $post     Customize Changeset Post object.
-		 * @param WP_REST_Request  $request  Request object.
+		 * @param WP_REST_Response $response       The response object.
+		 * @param WP_Post          $changeset_post Customize Changeset Post object.
+		 * @param WP_REST_Request  $request        Request object.
 		 */
-		return apply_filters( 'rest_prepare_customize_changeset', $data, $changeset_post, $request );
+		return apply_filters( 'rest_prepare_customize_changeset', $response, $changeset_post, $request );
 	}
 
 	/**
