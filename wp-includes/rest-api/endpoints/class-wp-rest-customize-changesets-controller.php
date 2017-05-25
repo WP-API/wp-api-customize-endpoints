@@ -146,12 +146,9 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	 * @return bool|WP_Error True if the request has access to delete the item, otherwise false or WP_Error object.
 	 */
 	public function delete_item_permissions_check( $request ) {
-		// Will $wp_customize need to be globalized?
-		$wp_customize = new WP_Customize_Manager( array(
-			'changeset_uuid' => $request['uuid'],
-		) );
+		$manager = $this->ensure_customize_manager( $request['uuid'] );
 
-		if ( ! $wp_customize->changeset_post_id() ) {
+		if ( ! $manager->changeset_post_id() ) {
 			return new WP_Error(
 				'rest_post_invalid_uuid',
 				__( 'Invalid changeset UUID.' ),
