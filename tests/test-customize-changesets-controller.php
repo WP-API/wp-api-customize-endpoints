@@ -701,19 +701,6 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	}
 
 	/**
-	 * Test that choosing a custom slug is forbidden.
-	 */
-	public function test_create_item_try_custom_slug() {
-		wp_set_current_user( self::$admin_id );
-
-		$request = new WP_REST_Request( 'POST', '/customize/v1/changesets' );
-		$request->set_param( 'slug', 'slug' );
-
-		$response = $this->server->dispatch( $request );
-		$this->assertErrorResponse( 'cannot_edit_changeset_slug', $response, 403 );
-	}
-
-	/**
 	 * Test that create_item() rejects creating changesets with nonexistant and disallowed post statuses.
 	 *
 	 * @dataProvider data_bad_customize_changeset_status
@@ -1020,11 +1007,11 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$request = new WP_REST_Request( 'PUT', sprintf( '/customize/v1/changesets/%s', $uuid ) );
 		$request->set_body_params( array(
-			'slug' => $bad_slug,
+			'uuid' => $bad_slug,
 		) );
 		$response = $this->server->dispatch( $request );
 
-		$this->assertErrorResponse( 'cannot_edit_changeset_slug', $response, 403 );
+		$this->assertErrorResponse( 'rest_incorrect_uuid', $response, 402 );
 
 		$manager = new WP_Customize_Manager();
 		$this->assertEmpty( get_post( $manager->find_changeset_post_id( $uuid ) ) );
@@ -1043,11 +1030,11 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 
 		$request = new WP_REST_Request( 'PUT', sprintf( '/customize/v1/changesets/%s', $manager->changeset_uuid() ) );
 		$request->set_body_params( array(
-			'slug' => $bad_slug,
+			'uuid' => $bad_slug,
 		) );
 		$response = $this->server->dispatch( $request );
 
-		$this->assertErrorResponse( 'cannot_edit_changeset_slug', $response, 403 );
+		$this->assertErrorResponse( 'rest_incorrect_uuid', $response, 402 );
 		$this->assertSame( get_post( $manager->changeset_post_id() )->post_name, $manager->changeset_uuid() );
 	}
 
@@ -1312,9 +1299,10 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$this->assertErrorResponse( 'rest_cannot_edit', $response );
 
 		$manager = new WP_Customize_Manager( array(
-			'uuid' => $uuid,
+			'changeset_uuid' => $uuid,
 		) );
-		$this->assertNull( $manager->changeset_post_id() );
+		$data = $manager->changeset_data();
+		$this->assertFalse( isset( $data['basic_option'] ) );
 	}
 
 	/**

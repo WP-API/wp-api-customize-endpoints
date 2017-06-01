@@ -39,6 +39,8 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 		'publish',
 	);
 
+	const REGEX_CHANGESET_UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
+
 	/**
 	 * Constructor.
 	 *
@@ -64,8 +66,8 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	public function ensure_customize_manager( $changeset_uuid = null ) {
 		global $wp_customize;
 		if ( empty( $wp_customize ) || $wp_customize->changeset_uuid() !== $changeset_uuid ) {
-			$skip_setting_preview = true;
-			$wp_customize = new \WP_Customize_Manager( compact( 'changeset_uuid', 'skip_setting_preview' ) ); // WPCS: global override ok.
+			$settings_preview = false;
+			$wp_customize = new \WP_Customize_Manager( compact( 'changeset_uuid', 'settings_preview' ) ); // WPCS: global override ok.
 
 			/** This action is documented in wp-includes/class-wp-customize-manager.php */
 			do_action( 'customize_register', $wp_customize );
@@ -104,7 +106,7 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 				'default' => 'view',
 			) ),
 		);
-		register_rest_route( $this->namespace, '/' . $this->rest_base . '/(?P<uuid>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}+)', array(
+		register_rest_route( $this->namespace, '/' . $this->rest_base . '/(?P<uuid>' . self::REGEX_CHANGESET_UUID . '+)', array(
 			'args' => array(
 				'id' => array(
 					'description' => __( 'UUID for the changeset.' ),
@@ -469,12 +471,6 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 			$data = $request['customize_changeset_data'];
 		}
 
-		if ( isset( $request['slug'] ) ) {
-			return new WP_Error( 'cannot_edit_changeset_slug', __( 'Not allowed to edit changeset slug' ), array(
-				'status' => 403,
-			) );
-		}
-
 		if ( ! $this->check_update_permission( $changeset_post, $data ) ) {
 			return new WP_Error( 'rest_cannot_edit', __( 'Sorry, you are not allowed to update this changeset post.' ), array(
 				'status' => 403,
@@ -586,8 +582,9 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 
 		if ( ! empty( $request['uuid'] ) ) {
 
-			if ( is_wp_error( $this->sanitize_uuid( $request['uuid'] ) ) ) {
-				return $this->sanitize_uuid( $request['uuid'] );
+			$valid_uuid = $this->sanitize_uuid( $request['uuid'] );
+			if ( is_wp_error( $valid_uuid ) ) {
+				return $valid_uuid;
 			}
 			$existing_post = $this->get_customize_changeset_post( $request['uuid'] );
 			if ( $existing_post ) {
@@ -1232,7 +1229,7 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	 * @return string|WP_Error Sanitized string / WP_Error if wrong format.
 	 */
 	public function sanitize_uuid( $uuid ) {
-		if ( ! preg_match( '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/', $uuid ) ) {
+		if ( ! preg_match( '/^' . self::REGEX_CHANGESET_UUID . '$/', $uuid ) ) {
 			return new WP_Error( 'rest_incorrect_uuid', __( 'Incorrect UUID.' ), array(
 				'status' => 402,
 			) );
