@@ -14,6 +14,15 @@
 class WP_Test_REST_Customize_Panels_Controller extends WP_Test_REST_Controller_TestCase {
 
 	/**
+	 * REST Server.
+	 *
+	 * Note that this variable is already defined on the parent class but it lacks the phpdoc variable type.
+	 *
+	 * @var WP_REST_Server
+	 */
+	protected $server;
+
+	/**
 	 * Subscriber user ID.
 	 *
 	 * @var int
@@ -53,7 +62,9 @@ class WP_Test_REST_Customize_Panels_Controller extends WP_Test_REST_Controller_T
 	 * @covers WP_REST_Customize_Panels_Controller::register_routes()
 	 */
 	public function test_register_routes() {
-		$this->markTestIncomplete();
+		$routes = $this->server->get_routes();
+		$this->assertArrayHasKey( '/customize/v1/panels', $routes );
+		$this->assertArrayHasKey( '/customize/v1/panels/(?P<panel>[\w-]+)', $routes );
 	}
 
 	/**
@@ -62,7 +73,21 @@ class WP_Test_REST_Customize_Panels_Controller extends WP_Test_REST_Controller_T
 	 * @covers WP_REST_Customize_Panels_Controller::get_context_param()
 	 */
 	public function test_context_param() {
-		$this->markTestIncomplete();
+		// Test collection.
+		$request = new WP_REST_Request( 'OPTIONS', '/customize/v1/panels' );
+		$response = $this->server->dispatch( $request );
+		$data = $response->get_data();
+		$this->assertEquals( 'view', $data['endpoints'][0]['args']['context']['default'] );
+		$this->assertEquals( array( 'view', 'embed' ), $data['endpoints'][0]['args']['context']['enum'] );
+
+		// Test single.
+		$manager = new WP_Customize_Manager();
+		$manager->add_panel( 'test' );
+		$request = new WP_REST_Request( 'OPTIONS', '/customize/v1/panels/test' );
+		$response = $this->server->dispatch( $request );
+		$data = $response->get_data();
+		$this->assertEquals( 'view', $data['endpoints'][0]['args']['context']['default'] );
+		$this->assertEquals( array( 'view', 'embed' ), $data['endpoints'][0]['args']['context']['enum'] );
 	}
 
 	/**

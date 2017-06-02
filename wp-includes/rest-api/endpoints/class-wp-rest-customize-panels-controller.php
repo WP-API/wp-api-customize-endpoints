@@ -104,13 +104,25 @@ class WP_REST_Customize_Panels_Controller extends WP_REST_Controller {
 				'sections'        => array(
 					'description' => __( 'The sections of the panel.' ),
 					'type'        => 'object',
-					'context'     => array( 'view' ),
+					'context'     => array( 'embed', 'view' ),
 					'readonly'    => true,
 				),
 				'slug'            => array(
 					'description' => __( 'An alphanumeric identifier for the panel.' ),
 					'type'        => 'string',
 					'context'     => array( 'embed', 'view' ),
+					'readonly'    => true,
+				),
+				'theme_supports'  => array(
+					'description' => __( 'Theme features required to support the panel.' ),
+					'type'        => 'object',
+					'context'     => array( 'view' ),
+					'readonly'    => true,
+				),
+				'type'            => array(
+					'description' => __( 'Type of the panel.' ),
+					'type'        => 'string',
+					'context'     => array( 'view' ),
 					'readonly'    => true,
 				),
 			),
