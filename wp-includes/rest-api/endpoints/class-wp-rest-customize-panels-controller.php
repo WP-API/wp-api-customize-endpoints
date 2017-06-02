@@ -86,13 +86,13 @@ class WP_REST_Customize_Panels_Controller extends WP_REST_Controller {
 				'description'     => array(
 					'description' => __( 'Panel description.' ),
 					'type'        => 'string',
-					'context'     => array( 'embed', 'view' ),
+					'context'     => array( 'embed', 'view', 'edit' ),
 					'readonly'    => true,
 				),
 				'name'            => array(
 					'description' => __( 'The title for the panel.' ),
 					'type'        => 'string',
-					'context'     => array( 'embed', 'view' ),
+					'context'     => array( 'embed', 'view', 'edit' ),
 					'readonly'    => true,
 				),
 				'priority'        => array(
@@ -104,7 +104,7 @@ class WP_REST_Customize_Panels_Controller extends WP_REST_Controller {
 				'sections'        => array(
 					'description' => __( 'The sections of the panel.' ),
 					'type'        => 'object',
-					'context'     => array( 'embed', 'view' ),
+					'context'     => array( 'embed', 'view', 'edit' ),
 					'readonly'    => true,
 				),
 				'slug'            => array(
