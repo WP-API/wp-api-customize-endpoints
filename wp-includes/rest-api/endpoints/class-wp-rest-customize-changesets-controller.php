@@ -1,6 +1,6 @@
 <?php
 /**
- * REST API: WP_REST_Posts_Controller class
+ * REST API: WP_REST_Customize_Changesets_Controller class
  *
  * @package WordPress
  * @subpackage REST_API
@@ -8,7 +8,7 @@
  */
 
 /**
- * Core class to access posts via the REST API.
+ * Core class to access customize changesets via the REST API.
  *
  * @since ?.?.?
  *
