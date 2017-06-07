@@ -628,41 +628,12 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 			);
 		}
 
-		// TODO: Ripped straight from _wp_customize_publish_changeset().
-
-		/** This action is documented in wp-includes/post.php */
-		do_action( 'wp_trash_post', $manager->changeset_post_id() );
-
-		add_post_meta( $manager->changeset_post_id(), '_wp_trash_meta_status', $post->post_status );
-		add_post_meta( $manager->changeset_post_id(), '_wp_trash_meta_time', time() );
-
-		$old_status = $post->post_status;
-		$new_status = 'trash';
-		$wpdb->update( $wpdb->posts, array( 'post_status' => $new_status ), array( 'ID' => $manager->changeset_post_id() ) );
-		clean_post_cache( $manager->changeset_post_id() );
-
-		$post->post_status = $new_status;
-		wp_transition_post_status( $new_status, $old_status, $post );
-
-		/** This action is documented in wp-includes/post.php */
-		do_action( 'edit_post', $manager->changeset_post_id(), $post );
-
-		/** This action is documented in wp-includes/post.php */
-		do_action( "save_post_{$post->post_type}", $manager->changeset_post_id(), $post, true );
-
-		/** This action is documented in wp-includes/post.php */
-		do_action( 'save_post', $manager->changeset_post_id(), $post, true );
-
-		/** This action is documented in wp-includes/post.php */
-		do_action( 'wp_insert_post', $manager->changeset_post_id(), $post, true );
-
-		/** This action is documented in wp-includes/post.php */
-		do_action( 'trashed_post', $manager->changeset_post_id() );
+		_wp_customize_trash_changeset( $manager->changeset_post_id() );
 
 		// TODO: At this point $wp_customize will no longer have up-to-date post data.
 		$result = get_post( $manager->changeset_post_id() );
 
-		if ( ! $result ) {
+		if ( ! $result || 'trash' !== get_post_status( $result ) ) {
 			return new WP_Error(
 				'rest_cannot_delete',
 				__( 'The post cannot be deleted.' ),

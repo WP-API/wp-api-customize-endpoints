@@ -37,3 +37,49 @@ function wp_api_customize_endpoints_rest_init() {
 	$changesets_controller->register_routes();
 }
 add_action( 'rest_api_init', 'wp_api_customize_endpoints_rest_init' );
+
+/**
+ * Temporary abstraction of changeset-trashing logic.
+ *
+ * @see https://github.com/WP-API/wp-api-customize-endpoints/pull/5#discussion_r120015044.
+ *
+ * @param $post_id Post ID.
+ */
+function _wp_customize_trash_changeset( $post_id ) {
+	global $wpdb;
+
+	$post = get_post( $post_id );
+
+	if ( ! $post ) {
+		return;
+	}
+
+	/** This action is documented in wp-includes/post.php */
+	do_action( 'wp_trash_post', $post_id );
+
+	add_post_meta( $post_id, '_wp_trash_meta_status', $post->post_status );
+	add_post_meta( $post_id, '_wp_trash_meta_time', time() );
+
+	$old_status = $post->post_status;
+	$new_status = 'trash';
+	$wpdb->update( $wpdb->posts, array( 'post_status' => $new_status ), array( 'ID' => $post_id ) );
+	clean_post_cache( $post_id );
+
+	$post->post_status = $new_status;
+	wp_transition_post_status( $new_status, $old_status, $post );
+
+	/** This action is documented in wp-includes/post.php */
+	do_action( 'edit_post', $post_id, $post );
+
+	/** This action is documented in wp-includes/post.php */
+	do_action( "save_post_{$post->post_type}", $post_id, $post, true );
+
+	/** This action is documented in wp-includes/post.php */
+	do_action( 'save_post', $post_id, $post, true );
+
+	/** This action is documented in wp-includes/post.php */
+	do_action( 'wp_insert_post', $post_id, $post, true );
+
+	/** This action is documented in wp-includes/post.php */
+	do_action( 'trashed_post', $post_id );
+}
