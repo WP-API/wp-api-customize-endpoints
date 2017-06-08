@@ -8,7 +8,7 @@
  */
 
 /**
- * Core class to access posts via the REST API.
+ * Core class to access panels via the REST API.
  *
  * @since ?.?.?
  *
