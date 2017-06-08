@@ -258,7 +258,7 @@ class WP_REST_Customize_Panels_Controller extends WP_REST_Controller {
 		foreach ( $panel->sections as $section_id => $section ) {
 			$data['sections'][] = array(
 				'section_id' => $section_id,
-				'_link' => $this->namespace . '/section/' . $section_id,
+				'_link' => $this->namespace . '/sections/' . $section_id, // @todo Once sections endpoint has implemented, perhaps it can be taken from there.
 			);
 		}
 
