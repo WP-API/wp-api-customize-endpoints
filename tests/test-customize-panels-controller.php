@@ -67,18 +67,29 @@ class WP_Test_REST_Customize_Panels_Controller extends WP_Test_REST_Controller_T
 	/**
 	 * Test panel slug.
 	 */
-	const TEST_PANEL_SLUG = 'test_panel';
+	const TEST_PANEL_ID = 'test_panel';
 
 	/**
 	 * Add custom panels for testing.
 	 *
 	 * @param object $wp_customize WP_Customize_Manager.
 	 */
-	protected function add_test_customize_settings( $wp_customize ) {
-		$wp_customize->add_panel( self::TEST_PANEL_SLUG, array(
+	public function add_test_customize_settings( $wp_customize ) {
+		$wp_customize->add_panel( self::TEST_PANEL_ID, array(
 			'name' => 'Test Panel',
 			'description' => 'Test Panel',
 			'priority' => 100,
+		) );
+
+		// Add section to the panel.
+		$wp_customize->add_section( 'test_section', array(
+			'title' => 'Test Section',
+			'panel' => self::TEST_PANEL_ID,
+		) );
+
+		$wp_customize->add_control( 'test_control', array(
+			'type' => 'textarea',
+			'section' => 'test_section',
 		) );
 	}
 
@@ -90,7 +101,7 @@ class WP_Test_REST_Customize_Panels_Controller extends WP_Test_REST_Controller_T
 	public function test_register_routes() {
 		$routes = $this->server->get_routes();
 		$this->assertArrayHasKey( '/customize/v1/panels', $routes );
-		$this->assertArrayHasKey( '/customize/v1/panels/(?P<panel>[\w-]+)', $routes );
+		$this->assertArrayHasKey( '/customize/v1/panels/(?P<panel>[\w-|\[\]]+)', $routes );
 	}
 
 	/**
@@ -104,14 +115,14 @@ class WP_Test_REST_Customize_Panels_Controller extends WP_Test_REST_Controller_T
 		$response = $this->server->dispatch( $request );
 		$data = $response->get_data();
 		$this->assertEquals( 'view', $data['endpoints'][0]['args']['context']['default'] );
-		$this->assertEquals( array( 'view', 'embed' ), $data['endpoints'][0]['args']['context']['enum'] );
+		$this->assertEquals( array( 'view', 'embed', 'edit' ), $data['endpoints'][0]['args']['context']['enum'] );
 
 		// Test single.
 		$request = new WP_REST_Request( 'OPTIONS', '/customize/v1/panels/test' );
 		$response = $this->server->dispatch( $request );
 		$data = $response->get_data();
 		$this->assertEquals( 'view', $data['endpoints'][0]['args']['context']['default'] );
-		$this->assertEquals( array( 'view', 'embed' ), $data['endpoints'][0]['args']['context']['enum'] );
+		$this->assertEquals( array( 'view', 'embed', 'edit' ), $data['endpoints'][0]['args']['context']['enum'] );
 	}
 
 	/**
@@ -124,28 +135,31 @@ class WP_Test_REST_Customize_Panels_Controller extends WP_Test_REST_Controller_T
 		$schema = $changeset_controller->get_item_schema();
 		$properties = $schema['properties'];
 
-		$this->assertEquals( 7, count( $properties ) );
+		$this->assertEquals( 8, count( $properties ) );
 
 		$this->assertArrayHasKey( 'description', $properties );
 		$this->assertSame( 'string', $properties['description']['type'] );
 
-		$this->assertArrayHasKey( 'name', $properties );
-		$this->assertSame( 'string', $properties['name']['type'] );
+		$this->assertArrayHasKey( 'title', $properties );
+		$this->assertSame( 'string', $properties['title']['type'] );
 
 		$this->assertArrayHasKey( 'priority', $properties );
 		$this->assertSame( 'integer', $properties['priority']['type'] );
 
 		$this->assertArrayHasKey( 'sections', $properties );
-		$this->assertSame( 'object', $properties['sections']['type'] );
+		$this->assertSame( 'array', $properties['sections']['type'] );
 
-		$this->assertArrayHasKey( 'slug', $properties );
-		$this->assertSame( 'string', $properties['slug']['type'] );
+		$this->assertArrayHasKey( 'id', $properties );
+		$this->assertSame( 'string', $properties['id']['type'] );
 
 		$this->assertArrayHasKey( 'theme_supports', $properties );
-		$this->assertSame( 'object', $properties['theme_supports']['type'] );
+		$this->assertSame( 'array', $properties['theme_supports']['type'] );
 
 		$this->assertArrayHasKey( 'type', $properties );
 		$this->assertSame( 'string', $properties['type']['type'] );
+
+		$this->assertArrayHasKey( 'auto_expand_sole_section', $properties );
+		$this->assertSame( 'boolean', $properties['auto_expand_sole_section']['type'] );
 	}
 
 	/**
@@ -156,39 +170,27 @@ class WP_Test_REST_Customize_Panels_Controller extends WP_Test_REST_Controller_T
 	public function test_get_item() {
 		wp_set_current_user( self::$admin_id );
 
-		$request = new WP_REST_Request( 'GET', sprintf( '/customize/v1/panels/%s', self::TEST_PANEL_SLUG ) );
+		$request = new WP_REST_Request( 'GET', sprintf( '/customize/v1/panels/%s', self::TEST_PANEL_ID ) );
 
 		$response = $this->server->dispatch( $request );
+
 		$this->assertEquals( 200, $response->get_status() );
 		$data = $response->get_data();
 
-		$this->assertSame( 1, count( $data ) );
-		$this->assertSame( self::TEST_PANEL_SLUG, $data[0]['slug'] );
-	}
-
-	/**
-	 * Test that edit context param is not allowed.
-	 */
-	public function test_get_item_unauthorized_context() {
-		wp_set_current_user( self::$subscriber_id );
-
-		$request = new WP_REST_Request( 'GET', sprintf( '/customize/v1/panels/%s', self::TEST_PANEL_SLUG ) );
-		$request->set_param( 'context', 'edit' );
-		$response = $this->server->dispatch( $request );
-		$this->assertErrorResponse( 'rest_invalid_param', $response, 403 );
+		$this->assertSame( self::TEST_PANEL_ID, $data['id'] );
 	}
 
 	/**
 	 * Test getting a non-existing panel.
 	 */
-	public function test_get_item_invalid_slug() {
+	public function test_get_item_invalid_id() {
 		wp_set_current_user( self::$admin_id );
 
 		$invalid_panel_id = 'qwertyuiop987654321'; // Probably doesn't exist.
 		$request = new WP_REST_Request( 'GET', sprintf( '/customize/v1/panels/%s', $invalid_panel_id ) );
 		$response = $this->server->dispatch( $request );
 
-		$this->assertErrorResponse( 'rest_panel_invalid_slug', $response, 404 );
+		$this->assertErrorResponse( 'rest_panel_invalid_id', $response, 403 );
 	}
 
 	/**
@@ -197,10 +199,10 @@ class WP_Test_REST_Customize_Panels_Controller extends WP_Test_REST_Controller_T
 	public function test_get_item_without_permission() {
 		wp_set_current_user( self::$subscriber_id );
 
-		$request = new WP_REST_Request( 'GET', sprintf( '/customize/v1/panels/%s', self::TEST_PANEL_SLUG ) );
+		$request = new WP_REST_Request( 'GET', sprintf( '/customize/v1/panels/%s', self::TEST_PANEL_ID ) );
 		$response = $this->server->dispatch( $request );
 
-		$this->assertErrorResponse( 'rest_forbidden', $response, 403 );
+		$this->assertErrorResponse( 'rest_panel_invalid_id', $response, 403 );
 	}
 
 	/**
@@ -209,7 +211,17 @@ class WP_Test_REST_Customize_Panels_Controller extends WP_Test_REST_Controller_T
 	 * @covers WP_REST_Customize_Panels_Controller::get_items()
 	 */
 	public function test_get_items() {
-		$this->markTestIncomplete();
+		wp_set_current_user( self::$admin_id );
+
+		$request = new WP_REST_Request( 'GET', '/customize/v1/panels' );
+
+		$response = $this->server->dispatch( $request );
+		$this->assertEquals( 200, $response->get_status() );
+		$data = $response->get_data();
+
+		foreach ( $data as $panel ) {
+			$this->assertTrue( in_array( $panel['id'], array( self::TEST_PANEL_ID, 'nav_menus' ), true ) );
+		}
 	}
 
 	/**
@@ -230,7 +242,18 @@ class WP_Test_REST_Customize_Panels_Controller extends WP_Test_REST_Controller_T
 	 * @covers WP_REST_Customize_Panels_Controller::prepare_item_for_response()
 	 */
 	public function test_prepare_item() {
-		$this->markTestIncomplete();
+		wp_set_current_user( self::$admin_id );
+		$panel_endpoint = new WP_REST_Customize_Panels_Controller();
+		$request = new WP_REST_Request();
+		$wp_customize = $panel_endpoint->ensure_customize_manager();
+
+		$test_panel = $wp_customize->get_panel( self::TEST_PANEL_ID );
+
+		$data = $panel_endpoint->prepare_item_for_response( $test_panel, $request );
+
+		$this->assertSame( self::TEST_PANEL_ID, $data['id'] );
+		$this->assertSame( 100, $data['priority'] );
+		$this->assertSame( 'test_section', $data['sections'][0]['section_id'] );
 	}
 
 	/**
