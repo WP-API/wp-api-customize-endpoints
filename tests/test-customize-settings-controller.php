@@ -89,7 +89,7 @@ class WP_Test_REST_Customize_Settings_Controller extends WP_Test_REST_Controller
 		) );
 
 		$wp_customize->add_setting( self::TEST_SETTING_ID , array(
-			'default'   => '#000000',
+			'default' => 'Default value.',
 			'transport' => 'refresh',
 		) );
 
@@ -120,6 +120,7 @@ class WP_Test_REST_Customize_Settings_Controller extends WP_Test_REST_Controller
 		$request = new WP_REST_Request( 'OPTIONS', '/customize/v1/settings' );
 		$response = $this->server->dispatch( $request );
 		$data = $response->get_data();
+
 		$this->assertEquals( 'view', $data['endpoints'][0]['args']['context']['default'] );
 		$this->assertEquals( array( 'view', 'embed', 'edit' ), $data['endpoints'][0]['args']['context']['enum'] );
 
@@ -141,7 +142,25 @@ class WP_Test_REST_Customize_Settings_Controller extends WP_Test_REST_Controller
 		$schema = $changeset_controller->get_item_schema();
 		$properties = $schema['properties'];
 
-		$this->markTestIncomplete();
+		$this->assertSame( 6, count( $properties ) );
+
+		$this->assertArrayHasKey( 'default', $properties );
+		$this->assertSame( 'object', $properties['default']['type'] );
+
+		$this->assertArrayHasKey( 'id', $properties );
+		$this->assertSame( 'string', $properties['id']['type'] );
+
+		$this->assertArrayHasKey( 'theme_supports', $properties );
+		$this->assertSame( 'array', $properties['theme_supports']['type'] );
+
+		$this->assertArrayHasKey( 'transport', $properties );
+		$this->assertSame( 'string', $properties['transport']['type'] );
+
+		$this->assertArrayHasKey( 'type', $properties );
+		$this->assertSame( 'string', $properties['type']['type'] );
+
+		$this->assertArrayHasKey( 'value', $properties );
+		$this->assertSame( 'object', $properties['value']['type'] );
 	}
 
 	/**
@@ -160,7 +179,6 @@ class WP_Test_REST_Customize_Settings_Controller extends WP_Test_REST_Controller
 		$data = $response->get_data();
 
 		$this->assertSame( self::TEST_SETTING_ID, $data['id'] );
-		$this->markTestIncomplete();
 	}
 
 	/**
@@ -194,7 +212,23 @@ class WP_Test_REST_Customize_Settings_Controller extends WP_Test_REST_Controller
 	 * @covers WP_REST_Customize_Settings_Controller::get_items()
 	 */
 	public function test_get_items() {
-		$this->markTestIncomplete();
+		wp_set_current_user( self::$admin_id );
+
+		$request = new WP_REST_Request( 'GET', '/customize/v1/settings' );
+		$response = $this->server->dispatch( $request );
+
+		$this->assertEquals( 200, $response->get_status() );
+		$data = $response->get_data();
+
+		$setting_found = false;
+
+		foreach ( $data as $setting ) {
+			if ( self::TEST_SETTING_ID === $setting['id'] ) {
+				$setting_found = true;
+			}
+		}
+
+		$this->assertTrue( $setting_found );
 	}
 
 	/**
@@ -213,7 +247,30 @@ class WP_Test_REST_Customize_Settings_Controller extends WP_Test_REST_Controller
 	 * Test updating setting value.
 	 */
 	public function test_update_item() {
-		$this->markTestIncomplete();
+		wp_set_current_user( self::$admin_id );
+
+		$test_value = 'test_value';
+
+		$request = new WP_REST_Request( 'PUT', sprintf( '/customize/v1/settings/%s', self::TEST_SETTING_ID ) );
+		$request->set_param( 'value', $test_value );
+		$response = $this->server->dispatch( $request );
+
+		$this->assertEquals( 200, $response->get_status() );
+		$data = $response->get_data();
+
+		$this->assertEquals( $test_value, $data['value'] );
+	}
+
+	public function test_update_item_without_permissions() {
+		wp_set_current_user( self::$subscriber_id );
+
+		$test_value = 'test_value';
+
+		$request = new WP_REST_Request( 'PUT', sprintf( '/customize/v1/settings/%s', self::TEST_SETTING_ID ) );
+		$request->set_param( 'value', $test_value );
+		$response = $this->server->dispatch( $request );
+
+		$this->assertErrorResponse( 'rest_forbidden', $response, 403 );
 	}
 
 	/**
@@ -222,7 +279,20 @@ class WP_Test_REST_Customize_Settings_Controller extends WP_Test_REST_Controller
 	 * @covers WP_REST_Customize_Settings_Controller::prepare_item_for_response()
 	 */
 	public function test_prepare_item() {
-		$this->markTestIncomplete();
+		wp_set_current_user( self::$admin_id );
+		$endpoint = new WP_REST_Customize_Settings_Controller();
+
+		$wp_customize = $endpoint->ensure_customize_manager();
+		$setting = $wp_customize->get_setting( self::TEST_SETTING_ID );
+
+		$request = new WP_REST_Request();
+		$request->set_param( 'setting', self::TEST_SETTING_ID );
+
+		$data = $endpoint->prepare_item_for_response( $setting, $request );
+
+		$this->assertEquals( self::TEST_SETTING_ID, $data['id'] );
+		$this->assertEquals( 'refresh', $data['transport'] );
+		$this->assertEquals( 'Default value.', $data['value'] );
 	}
 
 	/**

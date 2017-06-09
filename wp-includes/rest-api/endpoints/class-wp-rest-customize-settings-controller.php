@@ -60,7 +60,7 @@ class WP_REST_Customize_Settings_Controller extends WP_REST_Controller {
 			array(
 				'methods'             => WP_REST_Server::READABLE,
 				'callback'            => array( $this, 'get_items' ),
-				'args'                => array(),
+				'args'                => $this->get_collection_params(),
 				'permission_callback' => array( $this, 'get_items_permissions_check' ),
 			),
 			'schema' => array( $this, 'get_public_item_schema' ),
@@ -109,25 +109,12 @@ class WP_REST_Customize_Settings_Controller extends WP_REST_Controller {
 			'title'      => 'setting',
 			'type'       => 'object',
 			'properties' => array(
-				'capability'      => array(
-					'description' => __( 'Setting capability.' ),
-					'type'        => 'string',
-					'context'     => array( 'embed', 'view', 'edit' ),
-					'readonly'    => true,
-				),
-				'control'        => array( // @todo Check if that makes sense to add here at all.
-					'description' => __( 'The linked control of the setting.' ),
-					'type'        => 'array',
-					'context'     => array( 'embed', 'view', 'edit' ),
-					'readonly'    => true,
-				),
 				'default'         => array(
 					'description' => __( 'Default value' ),
 					'type'        => 'object',
 					'context'     => array( 'embed', 'view', 'edit' ),
 					'readonly'    => true,
 				),
-				// @todo Should $dirty be here as well?
 				'id'              => array(
 					'description' => __( 'Identifier for the setting.' ),
 					'type'        => 'string',
@@ -175,6 +162,7 @@ class WP_REST_Customize_Settings_Controller extends WP_REST_Controller {
 	public function get_item_permissions_check( $request ) {
 		$wp_customize = $this->ensure_customize_manager();
 
+		$wp_customize->add_dynamic_settings( array( $request['setting'] ) );
 		$setting = $wp_customize->get_setting( $request['setting'] );
 		if ( ! $setting ) {
 			return new WP_Error( 'rest_setting_invalid_id', __( 'Invalid setting ID.' ), array(
@@ -197,6 +185,7 @@ class WP_REST_Customize_Settings_Controller extends WP_REST_Controller {
 	public function get_item( $request ) {
 		$wp_customize = $this->ensure_customize_manager();
 
+		$wp_customize->add_dynamic_settings( array( $request['setting'] ) );
 		$setting = $wp_customize->get_setting( $request['setting'] );
 
 		return rest_ensure_response( $this->prepare_item_for_response( $setting, $request ) );
@@ -252,6 +241,7 @@ class WP_REST_Customize_Settings_Controller extends WP_REST_Controller {
 	public function update_item_permissions_check( $request ) {
 		$wp_customize = $this->ensure_customize_manager();
 
+		$wp_customize->add_dynamic_settings( array( $request['setting'] ) );
 		$setting = $wp_customize->get_setting( $request['setting'] );
 		if ( ! $setting ) {
 			return new WP_Error( 'rest_setting_invalid_id', __( 'Invalid setting ID.' ), array(
@@ -272,7 +262,14 @@ class WP_REST_Customize_Settings_Controller extends WP_REST_Controller {
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
 	public function update_item( $request ) {
-		return rest_ensure_response( '' );
+		$wp_customize = $this->ensure_customize_manager();
+		$wp_customize->add_dynamic_settings( array( $request['setting'] ) );
+
+		$wp_customize->set_post_value( $request['setting'], $request['value'] );
+		$setting = $wp_customize->get_setting( $request['setting'] );
+		$setting->save();
+
+		return rest_ensure_response( $this->prepare_item_for_response( $setting, $request ) );
 	}
 
 	/**
@@ -286,9 +283,21 @@ class WP_REST_Customize_Settings_Controller extends WP_REST_Controller {
 	 * @return WP_REST_Response Response object.
 	 */
 	public function prepare_item_for_response( $setting, $request ) {
+		$data = array();
 
-		// @todo
-		$data = (array) $setting;
+		$schema = $this->get_item_schema();
+
+		foreach ( $schema['properties'] as $name => $params ) {
+			if ( 'value' === $name ) {
+				$data[ $name ] = $setting->value();
+			} else {
+				$data[ $name ] = $setting->{$name};
+			}
+		}
+
+		$context = ! empty( $request['context'] ) ? $request['context'] : 'view';
+		$data = $this->add_additional_fields_to_object( $data, $request );
+		$data = $this->filter_response_by_context( $data, $context );
 
 		/**
 		 * Filters the setting data for a response.
