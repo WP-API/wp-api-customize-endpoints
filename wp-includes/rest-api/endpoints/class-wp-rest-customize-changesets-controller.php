@@ -68,7 +68,7 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 
 		if ( ! ( $wp_customize instanceof WP_Customize_Manager ) || $wp_customize->changeset_uuid() !== $changeset_uuid ) {
 			$settings_previewed = false;
-			$wp_customize = new \WP_Customize_Manager( compact( 'changeset_uuid', 'settings_previewed' ) ); // WPCS: global override ok.
+			$wp_customize = new WP_Customize_Manager( compact( 'changeset_uuid', 'settings_previewed' ) ); // WPCS: global override ok.
 
 			/** This action is documented in wp-includes/class-wp-customize-manager.php */
 			do_action( 'customize_register', $wp_customize );
