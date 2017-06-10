@@ -71,7 +71,7 @@ function _wp_customize_trash_changeset( $post_id ) {
 		array(
 			'ID' => $post_id,
 		)
-	); // WPCS: db call ok
+	); // WPCS: db call ok.
 
 	clean_post_cache( $post_id );
 
