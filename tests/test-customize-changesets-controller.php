@@ -528,17 +528,19 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	/**
 	 * Filter for GET request.
 	 *
-	 * @param array $data Response data.
+	 * @param WP_REST_Response $response Response data.
 	 * @return array Filtered data.
 	 */
-	public function get_changeset_custom_callback( $data ) {
-		$data['settings'] = array(
-			'foo' => array(
-				'value' => 'bar',
+	public function get_changeset_custom_callback( $response ) {
+		$response->set_data( array(
+			'settings' => array(
+				'foo' => array(
+					'value' => 'bar',
+				),
 			),
-		);
+		) );
 
-		return $data;
+		return $response;
 	}
 
 	/**
