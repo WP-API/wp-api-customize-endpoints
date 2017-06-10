@@ -749,7 +749,12 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 			}
 
 			$response = new WP_REST_Response();
-			$response->set_data( array( 'deleted' => true, 'previous' => $previous->get_data() ) );
+
+			$response->set_data( array(
+				'deleted' => true,
+				'previous' => $previous->get_data(),
+			) );
+
 			return $response;
 		}
 

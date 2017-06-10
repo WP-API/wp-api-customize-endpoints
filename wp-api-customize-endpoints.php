@@ -43,7 +43,7 @@ add_action( 'rest_api_init', 'wp_api_customize_endpoints_rest_init' );
  *
  * @see https://github.com/WP-API/wp-api-customize-endpoints/pull/5#discussion_r120015044.
  *
- * @param $post_id Post ID.
+ * @param int $post_id Post ID.
  */
 function _wp_customize_trash_changeset( $post_id ) {
 	global $wpdb;
@@ -62,7 +62,17 @@ function _wp_customize_trash_changeset( $post_id ) {
 
 	$old_status = $post->post_status;
 	$new_status = 'trash';
-	$wpdb->update( $wpdb->posts, array( 'post_status' => $new_status ), array( 'ID' => $post_id ) );
+
+	$wpdb->update(
+		$wpdb->posts,
+		array(
+			'post_status' => $new_status,
+		),
+		array(
+			'ID' => $post_id,
+		)
+	); // WPCS: db call ok
+
 	clean_post_cache( $post_id );
 
 	$post->post_status = $new_status;
