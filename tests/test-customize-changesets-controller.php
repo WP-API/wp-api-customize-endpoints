@@ -2157,6 +2157,30 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	 * @covers WP_REST_Customize_Changesets_Controller::prepare_item_for_response()
 	 */
 	public function test_prepare_item() {
-		$this->markTestIncomplete();
+		wp_set_current_user( self::$admin_id );
+		$uuid = wp_generate_uuid4();
+
+		$settings = wp_json_encode( array(
+			self::ALLOWED_TEST_SETTING_ID => array(
+				'value' => 'Foo',
+			),
+		) );
+
+		$customize_changeset = $this->factory()->post->create_and_get( array(
+			'post_type' => 'customize_changeset',
+			'post_name' => $uuid,
+			'post_status' => 'auto-draft',
+			'post_content' => $settings,
+		) );
+
+		$changeset_endpoint = new WP_REST_Customize_Changesets_Controller();
+		$request = new WP_REST_Request();
+
+		$response = $changeset_endpoint->prepare_item_for_response( $customize_changeset, $request );
+		$data = $response->get_data();
+
+		$this->assertSame( $uuid, $data['uuid'] );
+		$this->assertSame( 'auto-draft', $data['status'] );
+		$this->assertTrue( isset( $data['settings'][ self::ALLOWED_TEST_SETTING_ID ] ) );
 	}
 }

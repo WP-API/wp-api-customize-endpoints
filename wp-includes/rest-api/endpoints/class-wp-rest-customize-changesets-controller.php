@@ -1223,7 +1223,7 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 
 		// Use the date if passed.
 		if ( isset( $date ) ) {
-			if ( DateTime::createFromFormat( 'Y-m-d H:i:s', $date ) ) {
+			if ( $this->is_valid_date( $date ) ) {
 				return $date;
 			} else {
 				return date( 'Y-m-d H:i:s', time() );
@@ -1235,10 +1235,27 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 			return null;
 		}
 
-		if ( DateTime::createFromFormat( 'Y-m-d H:i:s', $date_gmt ) ) {
+		if ( $this->is_valid_date( $date_gmt ) ) {
 			return $date_gmt;
 		} else {
 			return date( 'Y-m-d H:i:s', time() );
+		}
+	}
+
+	/**
+	 * Checks if date is valid.
+	 *
+	 * @param $date
+	 * @return bool|DateTime|string
+	 */
+	protected function is_valid_date( $date ) {
+		if ( method_exists( 'DateTime', 'createFromFormat' ) ) {
+			return DateTime::createFromFormat( 'Y-m-d H:i:s', $date );
+		} else {
+
+			// For 5 >= 5.2.0.
+			$date = new DateTime( $date );
+			return $date->format( 'Y-m-d H:i:s' );
 		}
 	}
 
