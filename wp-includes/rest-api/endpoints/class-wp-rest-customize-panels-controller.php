@@ -25,6 +25,10 @@ class WP_REST_Customize_Panels_Controller extends WP_REST_Controller {
 	public function __construct() {
 		$this->namespace = 'customize/v1';
 		$this->rest_base = 'panels';
+
+		if ( ! class_exists( 'WP_Customize_Manager' ) ) {
+			require_once( ABSPATH . WPINC . '/class-wp-customize-manager.php' );
+		}
 	}
 
 	/**
@@ -228,7 +232,8 @@ class WP_REST_Customize_Panels_Controller extends WP_REST_Controller {
 			if ( ! $panel->check_capabilities() ) {
 				continue;
 			}
-			$panels[] = $this->prepare_item_for_response( $panel, $request );
+			$data = $this->prepare_item_for_response( $panel, $request );
+			$panels[] = $this->prepare_response_for_collection( $data );
 		}
 
 		return rest_ensure_response( $panels );
@@ -246,6 +251,11 @@ class WP_REST_Customize_Panels_Controller extends WP_REST_Controller {
 	 */
 	public function prepare_item_for_response( $panel, $request ) {
 		$data = (array) $panel;
+		$links = array(
+			'self' => array(
+				'href' => rest_url( trailingslashit( $this->namespace . '/' . $this->rest_base ) . $data['id'] ),
+			),
+		);
 
 		unset( $data['instance_count'] );
 		unset( $data['instance_number'] );
@@ -255,16 +265,22 @@ class WP_REST_Customize_Panels_Controller extends WP_REST_Controller {
 
 		$data['sections'] = array();
 
+		if ( ! empty( $panel->sections ) ) {
+			$links['sections'] = array();
+		}
 		foreach ( $panel->sections as $section_id => $section ) {
-			$data['sections'][] = array(
-				'section_id' => $section_id,
-				'_link' => $this->namespace . '/sections/' . $section_id, // @todo Once sections endpoint has implemented, perhaps it can be taken from there.
+			$data['sections'][] = $section_id;
+			$links['sections'][ $section_id ] = array(
+				'href' => rest_url( trailingslashit( $this->namespace ) . 'sections/' . $section_id ),
 			);
 		}
 
 		$context = ! empty( $request['context'] ) ? $request['context'] : 'view';
 		$data    = $this->add_additional_fields_to_object( $data, $request );
 		$data    = $this->filter_response_by_context( $data, $context );
+
+		$response = rest_ensure_response( $data );
+		$response->add_links( $links );
 
 		/**
 		 * Filters the panel data for a response.
@@ -275,7 +291,7 @@ class WP_REST_Customize_Panels_Controller extends WP_REST_Controller {
 		 * @param WP_Customize_Panel $panel    WP_Customize_Panel object.
 		 * @param WP_REST_Request    $request  Request object.
 		 */
-		return apply_filters( 'rest_prepare_customize_panel', $data, $panel, $request );
+		return apply_filters( 'rest_prepare_customize_panel', $response, $panel, $request );
 	}
 
 	/**

@@ -249,11 +249,12 @@ class WP_Test_REST_Customize_Panels_Controller extends WP_Test_REST_Controller_T
 
 		$test_panel = $wp_customize->get_panel( self::TEST_PANEL_ID );
 
-		$data = $panel_endpoint->prepare_item_for_response( $test_panel, $request );
+		$response = $panel_endpoint->prepare_item_for_response( $test_panel, $request );
+		$data = $response->get_data();
 
 		$this->assertSame( self::TEST_PANEL_ID, $data['id'] );
 		$this->assertSame( 100, $data['priority'] );
-		$this->assertSame( 'test_section', $data['sections'][0]['section_id'] );
+		$this->assertSame( 'test_section', $data['sections'][0] );
 	}
 
 	/**
