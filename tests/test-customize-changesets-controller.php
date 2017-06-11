@@ -1089,7 +1089,13 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$this->assertErrorResponse( 'rest_cannot_edit', $response, 403 );
 
 		$content_after = get_post( $changeset_post_id )->post_content;
-		$this->assertJsonStringEqualsJsonString( $content_before, $content_after );
+
+		// For PHP 5.2.
+		if ( method_exists( $this, 'assertJsonStringEqualsJsonString' ) ) {
+			$this->assertJsonStringEqualsJsonString( $content_before, $content_after );
+		} else {
+			$this->assertEquals( $content_before, $content_after );
+		}
 	}
 
 	/**
@@ -1117,7 +1123,13 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$this->assertErrorResponse( 'invalid_customize_changeset_data', $response, 400 );
 
 		$content_after = get_post( $changeset_post_id )->post_content;
-		$this->assertJsonStringEqualsJsonString( $content_before, $content_after );
+
+		// For PHP 5.2.
+		if ( method_exists( $this, 'assertJsonStringEqualsJsonString' ) ) {
+			$this->assertJsonStringEqualsJsonString( $content_before, $content_after );
+		} else {
+			$this->assertEquals( $content_before, $content_after );
+		}
 	}
 
 	/**
