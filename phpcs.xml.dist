@@ -8,6 +8,9 @@
 	<rule ref="WordPress">
 		<exclude name="WordPress.XSS.EscapeOutput"/>
 	</rule>
+	<arg value="s"/>
+	<arg name="extensions" value="php"/>
+	<file>.</file>
 
 	<!-- @todo These should not be required since the WordPress-VIP ruleset isn't being included. -->
 	<rule ref="WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents">
