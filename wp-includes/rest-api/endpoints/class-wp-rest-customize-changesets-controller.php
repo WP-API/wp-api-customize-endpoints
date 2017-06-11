@@ -1354,7 +1354,7 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	 * @return string|WP_Error Date string or error.
 	 */
 	public function sanitize_datetime( $date ) {
-		if ( DateTime::createFromFormat( 'Y-m-d H:i:s', $date ) ) {
+		if ( $this->is_valid_date( $date ) ) {
 			if ( $date < get_gmt_from_date( date( 'Y-m-d H:i:s', time() ) ) ) {
 				return new WP_Error( 'rest_incorrect_date', __( 'Incorrect date, date cannot be in past.' ), array(
 					'status' => 402,
