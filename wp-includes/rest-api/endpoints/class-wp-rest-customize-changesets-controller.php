@@ -1245,8 +1245,8 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	/**
 	 * Checks if date is valid.
 	 *
-	 * @param $date
-	 * @return bool|DateTime|string
+	 * @param string $date Date string.
+	 * @return bool|DateTime|string Return DateTime | if succeeds.
 	 */
 	protected function is_valid_date( $date ) {
 		if ( method_exists( 'DateTime', 'createFromFormat' ) ) {
