@@ -25,6 +25,10 @@ class WP_REST_Customize_Sections_Controller extends WP_REST_Controller {
 	public function __construct() {
 		$this->namespace = 'customize/v1';
 		$this->rest_base = 'sections';
+
+		if ( ! class_exists( 'WP_Customize_Manager' ) ) {
+			require_once( ABSPATH . WPINC . '/class-wp-customize-manager.php' );
+		}
 	}
 
 	/**
@@ -38,11 +42,13 @@ class WP_REST_Customize_Sections_Controller extends WP_REST_Controller {
 		if ( empty( $wp_customize ) ) {
 			$wp_customize = new WP_Customize_Manager(); // WPCS: global override ok.
 		}
+
 		if ( ! did_action( 'customize_register' ) ) {
 
 			/** This action is documented in wp-includes/class-wp-customize-manager.php */
 			do_action( 'customize_register', $wp_customize );
 		}
+
 		$wp_customize->prepare_controls();
 		return $wp_customize;
 	}
@@ -173,13 +179,13 @@ class WP_REST_Customize_Sections_Controller extends WP_REST_Controller {
 	 * @return bool|WP_Error True if the request has read access for the item, WP_Error object otherwise.
 	 */
 	public function get_item_permissions_check( $request ) {
+
 		$wp_customize = $this->ensure_customize_manager();
 
-		// @todo Figure out why tests are failing here although requests via Postman succeed.
 		$section = $wp_customize->get_section( $request['section'] );
 		if ( ! $section ) {
 			return new WP_Error( 'rest_section_invalid_id', __( 'Invalid section ID.' ), array(
-				'status' => 403,
+				'status' => 404,
 			) );
 		}
 
@@ -235,7 +241,8 @@ class WP_REST_Customize_Sections_Controller extends WP_REST_Controller {
 			if ( ! $section->check_capabilities() ) {
 				continue;
 			}
-			$sections[] = $this->prepare_item_for_response( $section, $request );
+			$data = $this->prepare_item_for_response( $section, $request );
+			$sections[] = $this->prepare_response_for_collection( $data );
 		}
 
 		return rest_ensure_response( $sections );
@@ -255,25 +262,47 @@ class WP_REST_Customize_Sections_Controller extends WP_REST_Controller {
 
 		$data = (array) $section;
 
-		unset( $data['instance_count'] );
-		unset( $data['instance_number'] );
-		unset( $data['manager'] );
-		unset( $data['active_callback'] );
-		unset( $data['capability'] );
+		$links = array(
+			'self' => array(
+				'href' => rest_url( trailingslashit( $this->namespace . '/' . $this->rest_base ) . $data['id'] ),
+			),
+		);
 
-		// @todo Add panel to response.
+		$hide_from_response = array(
+			'active_callback',
+			'instance_count',
+			'manager',
+			'capability',
+		);
+
+		foreach ( $hide_from_response as $param ) {
+			unset( $data[ $param ] );
+		}
+
 		$data['controls'] = array();
+		if ( 0 < count( $section->controls ) ) {
+			$links['controls'] = array();
+		}
 
 		foreach ( $section->controls as $control ) {
-			$data['controls'][] = array(
-				'control_id' => $control->id,
-				'_link' => $this->namespace . '/controls/' . $control->id, // @todo Once controls endpoint has implemented, perhaps it can be taken from there.
+			$data['controls'][] = $control->id;
+			$links['controls'][ $control->id ] = array(
+				'href' => rest_url( trailingslashit( $this->namespace ) . 'controls/' . $control->id ),
+			);
+		}
+
+		if ( ! empty( $data['panel'] ) ) {
+			$links['panel'] = array(
+				'href' => rest_url( trailingslashit( $this->namespace ) . 'panels/' . $data['panel'] ),
 			);
 		}
 
 		$context = ! empty( $request['context'] ) ? $request['context'] : 'view';
 		$data    = $this->add_additional_fields_to_object( $data, $request );
 		$data    = $this->filter_response_by_context( $data, $context );
+
+		$response = rest_ensure_response( $data );
+		$response->add_links( $links );
 
 		/**
 		 * Filters the section data for a response.
@@ -284,7 +313,7 @@ class WP_REST_Customize_Sections_Controller extends WP_REST_Controller {
 		 * @param WP_Customize_Section $section    WP_Customize_Section object.
 		 * @param WP_REST_Request    $request  Request object.
 		 */
-		return apply_filters( 'rest_prepare_customize_section', $data, $section, $request );
+		return apply_filters( 'rest_prepare_customize_section', $response, $section, $request );
 	}
 
 	/**

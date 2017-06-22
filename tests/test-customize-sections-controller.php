@@ -75,22 +75,21 @@ class WP_Test_REST_Customize_Sections_Controller extends WP_Test_REST_Controller
 	 * @param object $wp_customize WP_Customize_Manager.
 	 */
 	public function add_test_customize_settings( $wp_customize ) {
-		$wp_customize->add_panel( 'test_panel', array(
-			'name' => 'Test Panel',
-			'description' => 'Test Panel',
+
+		// Add section.
+		$wp_customize->add_section( self::TEST_SECTION_ID, array(
+			'title' => 'Test Section',
 			'priority' => 100,
 		) );
 
-		// Add section to the panel.
-		$wp_customize->add_section( self::TEST_SECTION_ID, array(
-			'title' => 'Test Section',
-			'panel' => 'test_panel',
-			'priority' => 100,
+		$wp_customize->add_setting( 'test_control', array(
+			'default' => '#000',
+			'sanitize_callback' => 'sanitize_hex_color',
 		) );
 
 		$wp_customize->add_control( 'test_control', array(
-			'type' => 'textarea',
 			'section' => self::TEST_SECTION_ID,
+			'type' => 'textarea',
 		) );
 	}
 
@@ -111,6 +110,7 @@ class WP_Test_REST_Customize_Sections_Controller extends WP_Test_REST_Controller
 	 * @covers WP_REST_Customize_Sections_Controller::get_context_param()
 	 */
 	public function test_context_param() {
+
 		// Test collection.
 		$request = new WP_REST_Request( 'OPTIONS', '/customize/v1/sections' );
 		$response = $this->server->dispatch( $request );
@@ -182,7 +182,7 @@ class WP_Test_REST_Customize_Sections_Controller extends WP_Test_REST_Controller
 		$data = $response->get_data();
 
 		$this->assertSame( self::TEST_SECTION_ID, $data['id'] );
-		$this->assertSame( 1, count( $data['controls'] ) );
+		$this->assertTrue( in_array( 'test_control', $data['controls'], true ) );
 	}
 
 	/**
@@ -195,7 +195,7 @@ class WP_Test_REST_Customize_Sections_Controller extends WP_Test_REST_Controller
 		$request = new WP_REST_Request( 'GET', sprintf( '/customize/v1/sections/%s', $invalid_section_id ) );
 		$response = $this->server->dispatch( $request );
 
-		$this->assertErrorResponse( 'rest_section_invalid_id', $response, 403 );
+		$this->assertErrorResponse( 'rest_section_invalid_id', $response, 404 );
 	}
 
 	/**
@@ -207,7 +207,7 @@ class WP_Test_REST_Customize_Sections_Controller extends WP_Test_REST_Controller
 		$request = new WP_REST_Request( 'GET', sprintf( '/customize/v1/sections/%s', self::TEST_SECTION_ID ) );
 		$response = $this->server->dispatch( $request );
 
-		$this->assertErrorResponse( 'rest_forbidden', $response, 403 );
+		$this->assertErrorResponse( 'rest_section_invalid_id', $response, 404 );
 	}
 
 	/**
@@ -259,11 +259,12 @@ class WP_Test_REST_Customize_Sections_Controller extends WP_Test_REST_Controller
 
 		$test_section = $wp_customize->get_section( self::TEST_SECTION_ID );
 
-		$data = $section_endpoint->prepare_item_for_response( $test_section, $request );
+		$response = $section_endpoint->prepare_item_for_response( $test_section, $request );
+		$data = $response->get_data();
 
 		$this->assertSame( self::TEST_SECTION_ID, $data['id'] );
 		$this->assertSame( 100, $data['priority'] );
-		$this->assertSame( 'test_control', $data['controls'][0]['control_id'] );
+		$this->assertTrue( in_array( 'test_control', $data['controls'], true ) );
 	}
 
 	/**
