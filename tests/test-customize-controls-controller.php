@@ -67,7 +67,7 @@ class WP_Test_REST_Customize_Controls_Controller extends WP_Test_REST_Controller
 	/**
 	 * Test control ID.
 	 */
-	const TEST_CONTROL_ID = 'test_control';
+	const TEST_SETTING_ID = 'test_setting';
 
 	/**
 	 * Add custom control for testing.
@@ -81,15 +81,23 @@ class WP_Test_REST_Customize_Controls_Controller extends WP_Test_REST_Controller
 			'priority' => 100,
 		) );
 
-		// Add control to the panel.
-		$wp_customize->add_control( 'test_section', array(
+		// Add section to the panel.
+		$wp_customize->add_section( 'test_section', array(
 			'title' => 'Test Section',
 			'panel' => 'test_panel',
 			'priority' => 100,
 		) );
 
-		// @todo Improve this to add more params.
-		$wp_customize->add_control( self::TEST_CONTROL_ID, array(
+		// Add setting.
+		$wp_customize->add_setting( self::TEST_SETTING_ID, array(
+			'type' => 'option',
+			'capability' => 'manage_options',
+			'default' => 'Test Setting',
+			'sanitize_callback' => 'sanitize_text',
+		) );
+
+		// Add control.
+		$wp_customize->add_control( self::TEST_SETTING_ID, array(
 			'type' => 'textarea',
 			'section' => 'test_section',
 		) );
@@ -112,6 +120,7 @@ class WP_Test_REST_Customize_Controls_Controller extends WP_Test_REST_Controller
 	 * @covers WP_REST_Customize_Controls_Controller::get_context_param()
 	 */
 	public function test_context_param() {
+
 		// Test collection.
 		$request = new WP_REST_Request( 'OPTIONS', '/customize/v1/controls' );
 		$response = $this->server->dispatch( $request );
@@ -137,7 +146,43 @@ class WP_Test_REST_Customize_Controls_Controller extends WP_Test_REST_Controller
 		$schema = $changeset_controller->get_item_schema();
 		$properties = $schema['properties'];
 
-		$this->markTestIncomplete();
+		$this->assertSame( 12, count( $properties ) );
+
+		$this->assertArrayHasKey( 'allow_addition', $properties );
+		$this->assertSame( 'boolean', $properties['allow_addition']['type'] );
+
+		$this->assertArrayHasKey( 'choices', $properties );
+		$this->assertSame( 'object', $properties['choices']['type'] );
+
+		$this->assertArrayHasKey( 'description', $properties );
+		$this->assertSame( 'string', $properties['description']['type'] );
+
+		$this->assertArrayHasKey( 'id', $properties );
+		$this->assertSame( 'string', $properties['id']['type'] );
+
+		$this->assertArrayHasKey( 'instance_number', $properties );
+		$this->assertSame( 'integer', $properties['instance_number']['type'] );
+
+		$this->assertArrayHasKey( 'input_attrs', $properties );
+		$this->assertSame( 'object', $properties['input_attrs']['type'] );
+
+		$this->assertArrayHasKey( 'label', $properties );
+		$this->assertSame( 'string', $properties['label']['type'] );
+
+		$this->assertArrayHasKey( 'priority', $properties );
+		$this->assertSame( 'integer', $properties['priority']['type'] );
+
+		$this->assertArrayHasKey( 'section', $properties );
+		$this->assertSame( 'string', $properties['section']['type'] );
+
+		$this->assertArrayHasKey( 'setting', $properties );
+		$this->assertSame( 'string', $properties['setting']['type'] );
+
+		$this->assertArrayHasKey( 'settings', $properties );
+		$this->assertSame( 'array', $properties['settings']['type'] );
+
+		$this->assertArrayHasKey( 'type', $properties );
+		$this->assertSame( 'string', $properties['type']['type'] );
 	}
 
 	/**
@@ -148,15 +193,14 @@ class WP_Test_REST_Customize_Controls_Controller extends WP_Test_REST_Controller
 	public function test_get_item() {
 		wp_set_current_user( self::$admin_id );
 
-		$request = new WP_REST_Request( 'GET', sprintf( '/customize/v1/controls/%s', self::TEST_CONTROL_ID ) );
+		$request = new WP_REST_Request( 'GET', sprintf( '/customize/v1/controls/%s', self::TEST_SETTING_ID ) );
 
 		$response = $this->server->dispatch( $request );
 
 		$this->assertEquals( 200, $response->get_status() );
 		$data = $response->get_data();
 
-		$this->assertSame( self::TEST_CONTROL_ID, $data['id'] );
-		$this->assertSame( 1, count( $data['controls'] ) );
+		$this->assertSame( self::TEST_SETTING_ID, $data['id'] );
 	}
 
 	/**
@@ -178,7 +222,7 @@ class WP_Test_REST_Customize_Controls_Controller extends WP_Test_REST_Controller
 	public function test_get_item_without_permission() {
 		wp_set_current_user( self::$subscriber_id );
 
-		$request = new WP_REST_Request( 'GET', sprintf( '/customize/v1/controls/%s', self::TEST_CONTROL_ID ) );
+		$request = new WP_REST_Request( 'GET', sprintf( '/customize/v1/controls/%s', self::TEST_SETTING_ID ) );
 		$response = $this->server->dispatch( $request );
 
 		$this->assertErrorResponse( 'rest_forbidden', $response, 403 );
@@ -200,7 +244,7 @@ class WP_Test_REST_Customize_Controls_Controller extends WP_Test_REST_Controller
 
 		$test_control_exists = false;
 		foreach ( $data as $control ) {
-			if ( self::TEST_CONTROL_ID === $control['id'] ) {
+			if ( self::TEST_SETTING_ID === $control['id'] ) {
 				$test_control_exists = true;
 				break;
 			}
@@ -231,13 +275,14 @@ class WP_Test_REST_Customize_Controls_Controller extends WP_Test_REST_Controller
 		$request = new WP_REST_Request();
 		$wp_customize = $control_endpoint->ensure_customize_manager();
 
-		$test_control = $wp_customize->get_control( self::TEST_CONTROL_ID );
+		$test_control = $wp_customize->get_control( self::TEST_SETTING_ID );
 
-		$data = $control_endpoint->prepare_item_for_response( $test_control, $request );
+		$response = $control_endpoint->prepare_item_for_response( $test_control, $request );
+		$data = $response->get_data();
 
-		$this->assertSame( self::TEST_CONTROL_ID, $data['id'] );
-
-		// @todo add assertions. That's incomplete right now.
+		$this->assertSame( self::TEST_SETTING_ID, $data['id'] );
+		$this->assertEquals( 'test_setting', $data['setting'] );
+		$this->assertEquals( 'test_section', $data['section'] );
 	}
 
 	/**

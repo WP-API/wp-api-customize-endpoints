@@ -126,6 +126,12 @@ class WP_REST_Customize_Controls_Controller extends WP_REST_Controller {
 					'context'     => array( 'embed', 'view' ),
 					'readonly'    => true,
 				),
+				'instance_number' => array(
+					'description' => __( 'Order in which this instance was created in relation to other instances.' ),
+					'type'        => 'integer',
+					'context'     => array( 'embed', 'view', 'edit' ),
+					'readonly'    => true,
+				),
 				'input_attrs'         => array(
 					'description' => __( 'Input attributes for a control.' ),
 					'type'        => 'object',
@@ -146,13 +152,13 @@ class WP_REST_Customize_Controls_Controller extends WP_REST_Controller {
 				),
 				'section'        => array(
 					'description' => __( 'The related section.' ),
-					'type'        => 'object',
+					'type'        => 'string',
 					'context'     => array( 'embed', 'view' ),
 					'readonly'    => true,
 				),
 				'setting'         => array(
 					'description' => __( 'Primary setting of the control.' ),
-					'type'        => 'object',
+					'type'        => 'string',
 					'context'     => array( 'embed', 'view', 'edit' ),
 					'readonly'    => true,
 				),
@@ -245,7 +251,8 @@ class WP_REST_Customize_Controls_Controller extends WP_REST_Controller {
 			if ( ! $control->check_capabilities() ) {
 				continue;
 			}
-			$controls[] = $this->prepare_item_for_response( $control, $request );
+			$data = $this->prepare_item_for_response( $control, $request );
+			$controls[] = $this->prepare_response_for_collection( $data );
 		}
 
 		return rest_ensure_response( $controls );
@@ -263,19 +270,64 @@ class WP_REST_Customize_Controls_Controller extends WP_REST_Controller {
 	 */
 	public function prepare_item_for_response( $control, $request ) {
 
-		// @todo That's completely WIP.
-		$data = (array) $control;
+		$control_array = (array) $control;
+		$data = array();
+
+		$links = array(
+			'self' => array(
+				'href' => rest_url( trailingslashit( $this->namespace . '/' . $this->rest_base ) . $control_array['id'] ),
+			),
+		);
+
+		$hide_from_response = array(
+			'capability',
+			'manager',
+			'json',
+			'active_callback',
+		);
+
+		foreach ( $control_array  as $property => $value ) {
+			if ( in_array( $property, $hide_from_response, true ) ) {
+				continue;
+			} elseif ( 'setting' === $property && is_object( $value ) ) {
+				$data['setting'] = $value->id;
+				$links['setting'] = array(
+					'href' => rest_url( trailingslashit( $this->namespace ) . 'settings/' . $value->id ),
+				);
+			} elseif ( 'settings' === $property ) {
+				if ( ! empty( $value ) ) {
+					$links['settings'] = array();
+				}
+				foreach ( $value as $name => $setting ) {
+					if ( is_object( $setting ) ) {
+						$data['settings'][] = $setting->id;
+						$links['settings'][ $setting->id ] = array(
+							'href' => rest_url( trailingslashit( $this->namespace ) . 'settings/' . $setting->id ),
+						);
+					}
+				}
+			} else {
+				$data[ $property ] = $value;
+			}
+		}
+
+		$context = ! empty( $request['context'] ) ? $request['context'] : 'view';
+		$data    = $this->add_additional_fields_to_object( $data, $request );
+		$data    = $this->filter_response_by_context( $data, $context );
+
+		$response = rest_ensure_response( $data );
+		$response->add_links( $links );
 
 		/**
 		 * Filters the control data for a response.
 		 *
 		 * @since 4.?.?
 		 *
-		 * @param WP_REST_Response    $response The response object.
+		 * @param WP_REST_Response     $response The response object.
 		 * @param WP_Customize_Control $control    WP_Customize_Control object.
-		 * @param WP_REST_Request    $request  Request object.
+		 * @param WP_REST_Request      $request  Request object.
 		 */
-		return apply_filters( 'rest_prepare_customize_control', $data, $control, $request );
+		return apply_filters( 'rest_prepare_customize_control', $response, $control, $request );
 	}
 
 	/**
