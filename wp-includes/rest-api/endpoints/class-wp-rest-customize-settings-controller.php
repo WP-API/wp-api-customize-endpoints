@@ -166,7 +166,7 @@ class WP_REST_Customize_Settings_Controller extends WP_REST_Controller {
 		$setting = $wp_customize->get_setting( $request['setting'] );
 		if ( ! $setting ) {
 			return new WP_Error( 'rest_setting_invalid_id', __( 'Invalid setting ID.' ), array(
-				'status' => 403,
+				'status' => 404,
 			) );
 		}
 

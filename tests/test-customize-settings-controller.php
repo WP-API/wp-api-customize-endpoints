@@ -191,7 +191,7 @@ class WP_Test_REST_Customize_Settings_Controller extends WP_Test_REST_Controller
 		$request = new WP_REST_Request( 'GET', sprintf( '/customize/v1/settings/%s', $invalid_setting_id ) );
 		$response = $this->server->dispatch( $request );
 
-		$this->assertErrorResponse( 'rest_setting_invalid_id', $response, 403 );
+		$this->assertErrorResponse( 'rest_setting_invalid_id', $response, 404 );
 	}
 
 	/**
@@ -261,6 +261,9 @@ class WP_Test_REST_Customize_Settings_Controller extends WP_Test_REST_Controller
 		$this->assertEquals( $test_value, $data['value'] );
 	}
 
+	/**
+	 * Test updating a setting value without permissions.
+	 */
 	public function test_update_item_without_permissions() {
 		wp_set_current_user( self::$subscriber_id );
 

@@ -32,9 +32,15 @@ function wp_api_customize_andpoints_rest_init() {
 	if ( ! class_exists( 'WP_REST_Customize_Changesets_Controller' ) ) {
 		require_once dirname( __FILE__ ) . '/wp-includes/rest-api/endpoints/class-wp-rest-customize-changesets-controller.php';
 	}
+	if ( ! class_exists( 'WP_REST_Customize_Settings_Controller' ) ) {
+		require_once dirname( __FILE__ ) . '/wp-includes/rest-api/endpoints/class-wp-rest-customize-settings-controller.php';
+	}
 
 	$changesets_controller = new WP_REST_Customize_Changesets_Controller();
 	$changesets_controller->register_routes();
+
+	$settings_controller = new WP_REST_Customize_Settings_Controller();
+	$settings_controller->register_routes();
 
 }
 add_action( 'rest_api_init', 'wp_api_customize_andpoints_rest_init' );
