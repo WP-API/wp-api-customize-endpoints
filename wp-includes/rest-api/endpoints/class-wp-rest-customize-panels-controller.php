@@ -266,12 +266,13 @@ class WP_REST_Customize_Panels_Controller extends WP_REST_Controller {
 		$data['sections'] = array();
 
 		if ( ! empty( $panel->sections ) ) {
-			$links['sections'] = array();
+			$links['children'] = array();
 		}
 		foreach ( $panel->sections as $section_id => $section ) {
 			$data['sections'][] = $section_id;
-			$links['sections'][ $section_id ] = array(
-				'href' => rest_url( trailingslashit( $this->namespace ) . 'sections/' . $section_id ),
+			$links['children'][] = array(
+				'href'       => rest_url( trailingslashit( $this->namespace ) . 'sections/' . $section_id ),
+				'embeddable' => true,
 			);
 		}
 
