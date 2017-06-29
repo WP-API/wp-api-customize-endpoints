@@ -142,10 +142,13 @@ class WP_Test_REST_Customize_Settings_Controller extends WP_Test_REST_Controller
 		$schema = $changeset_controller->get_item_schema();
 		$properties = $schema['properties'];
 
-		$this->assertSame( 6, count( $properties ) );
+		$this->assertSame( 7, count( $properties ) );
 
 		$this->assertArrayHasKey( 'default', $properties );
 		$this->assertSame( 'object', $properties['default']['type'] );
+
+		$this->assertArrayHasKey( 'dirty', $properties );
+		$this->assertSame( 'boolean', $properties['dirty']['type'] );
 
 		$this->assertArrayHasKey( 'id', $properties );
 		$this->assertSame( 'string', $properties['id']['type'] );

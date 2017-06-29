@@ -115,6 +115,12 @@ class WP_REST_Customize_Settings_Controller extends WP_REST_Controller {
 					'context'     => array( 'embed', 'view', 'edit' ),
 					'readonly'    => true,
 				),
+				'dirty'           => array(
+					'description' => __( 'Whether or not the setting is dirty.' ),
+					'type'        => 'boolean',
+					'context'     => array( 'embed', 'view', 'edit' ),
+					'readonly'    => true,
+				),
 				'id'              => array(
 					'description' => __( 'Identifier for the setting.' ),
 					'type'        => 'string',
