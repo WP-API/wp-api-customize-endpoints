@@ -271,6 +271,7 @@ class WP_REST_Customize_Sections_Controller extends WP_REST_Controller {
 		$hide_from_response = array(
 			'active_callback',
 			'instance_count',
+			'instance_number',
 			'manager',
 			'capability',
 		);
@@ -281,20 +282,24 @@ class WP_REST_Customize_Sections_Controller extends WP_REST_Controller {
 
 		$data['controls'] = array();
 		if ( 0 < count( $section->controls ) ) {
-			$links['controls'] = array();
+			$links['children'] = array();
 		}
 
 		foreach ( $section->controls as $control ) {
 			$data['controls'][] = $control->id;
-			$links['controls'][ $control->id ] = array(
+			$links['children'][ $control->id ] = array(
 				'href' => rest_url( trailingslashit( $this->namespace ) . 'controls/' . $control->id ),
+				'embeddable' => true,
 			);
 		}
 
 		if ( ! empty( $data['panel'] ) ) {
-			$links['panel'] = array(
+			$links['up'] = array(
 				'href' => rest_url( trailingslashit( $this->namespace ) . 'panels/' . $data['panel'] ),
+				'embeddable' => true,
 			);
+		} else {
+			$data['panel'] = null;
 		}
 
 		$context = ! empty( $request['context'] ) ? $request['context'] : 'view';
