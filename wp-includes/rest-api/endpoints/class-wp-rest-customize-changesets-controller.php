@@ -65,13 +65,15 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	 */
 	public function ensure_customize_manager( $changeset_uuid = null ) {
 		global $wp_customize;
-		if ( empty( $wp_customize ) || $wp_customize->changeset_uuid() !== $changeset_uuid ) {
+
+		if ( ! ( $wp_customize instanceof WP_Customize_Manager ) || $wp_customize->changeset_uuid() !== $changeset_uuid ) {
 			$settings_previewed = false;
-			$wp_customize = new \WP_Customize_Manager( compact( 'changeset_uuid', 'settings_previewed' ) ); // WPCS: global override ok.
+			$wp_customize = new WP_Customize_Manager( compact( 'changeset_uuid', 'settings_previewed' ) ); // WPCS: global override ok.
 
 			/** This action is documented in wp-includes/class-wp-customize-manager.php */
 			do_action( 'customize_register', $wp_customize );
 		}
+
 		return $wp_customize;
 	}
 
@@ -84,7 +86,6 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	 * @see register_rest_route()
 	 */
 	public function register_routes() {
-
 		register_rest_route( $this->namespace, '/' . $this->rest_base, array(
 			array(
 				'methods'             => WP_REST_Server::READABLE,
@@ -706,6 +707,132 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	}
 
 	/**
+	 * Deletes a changeset.
+	 *
+	 * @since ?.?.?
+	 * @access public
+	 *
+	 * @param WP_REST_Request $request Full details about the request.
+	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
+	 */
+	public function delete_item( $request ) {
+		global $wpdb;
+
+		$manager = $this->ensure_customize_manager( $request['uuid'] );
+
+		if ( ! $manager->changeset_post_id() ) {
+			return new WP_Error(
+				'rest_post_invalid_uuid',
+				__( 'Invalid changeset UUID.' ),
+				array(
+					'status' => 404,
+				)
+			);
+		}
+
+		$post = get_post( $manager->changeset_post_id() );
+
+		if ( $request['force'] ) {
+			$previous = $this->prepare_item_for_response( $post, $request );
+
+			// TODO: At this point $wp_customize will no longer have up-to-date post data.
+			$result = wp_delete_post( $manager->changeset_post_id(), true );
+
+			if ( ! $result ) {
+				return new WP_Error(
+					'rest_cannot_delete',
+					__( 'The post cannot be deleted.' ),
+					array(
+						'status' => 500,
+					)
+				);
+			}
+
+			$response = new WP_REST_Response();
+
+			$response->set_data( array(
+				'deleted' => true,
+				'previous' => $previous->get_data(),
+			) );
+
+			return $response;
+		}
+
+		// TODO (?): Not filterable a la WP_REST_Posts_Controller.
+		if ( ! ( EMPTY_TRASH_DAYS > 0 ) ) {
+			return new WP_Error(
+				'rest_trash_not_supported',
+				__( 'The post does not support trashing. Set force=true to delete.' ),
+				array(
+					'status' => 501,
+				)
+			);
+		}
+
+		if ( 'trash' === get_post_status( $manager->changeset_post_id() ) ) {
+			return new WP_Error(
+				'rest_already_trashed',
+				__( 'The changeset has already been deleted.' ),
+				array(
+					'status' => 410,
+				)
+			);
+		}
+
+		_wp_customize_trash_changeset( $manager->changeset_post_id() );
+
+		// TODO: At this point $wp_customize will no longer have up-to-date post data.
+		$result = get_post( $manager->changeset_post_id() );
+
+		if ( ! $result || 'trash' !== get_post_status( $result ) ) {
+			return new WP_Error(
+				'rest_cannot_delete',
+				__( 'The post cannot be deleted.' ),
+				array(
+					'status' => 500,
+				)
+			);
+		}
+
+		return $this->prepare_item_for_response( $result, $request );
+	}
+
+	/**
+	 * Check whether a request can delete the specified changeset.
+	 *
+	 * @since ?.?.?
+	 * @access public
+	 *
+	 * @param WP_REST_Request $request Full details about the request.
+	 * @return bool|WP_Error True if the request has access to delete the item, otherwise false or WP_Error object.
+	 */
+	public function delete_item_permissions_check( $request ) {
+		$manager = $this->ensure_customize_manager( $request['uuid'] );
+
+		if ( ! $manager->changeset_post_id() ) {
+			return new WP_Error(
+				'rest_post_invalid_uuid',
+				__( 'Invalid changeset UUID.' ),
+				array(
+					'status' => 404,
+				)
+			);
+		}
+
+		if ( ! current_user_can( get_post_type_object( 'customize_changeset' )->cap->delete_post, $manager->changeset_post_id() ) ) {
+			return new WP_Error(
+				'rest_cannot_delete',
+				__( 'Sorry, you are not allowed to delete this item.' ),
+				array(
+					'status' => rest_authorization_required_code(),
+				)
+			);
+		}
+
+		return true;
+	}
+
+	/**
 	 * Prepares a customize changeset for create or update.
 	 *
 	 * @since 4.?.?
@@ -1068,16 +1195,18 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 		$data    = $this->add_additional_fields_to_object( $data, $request );
 		$data    = $this->filter_response_by_context( $data, $context );
 
+		$response = rest_ensure_response( $data );
+
 		/**
 		 * Filters the customize changeset data for a response.
 		 *
 		 * @since 4.?.?
 		 *
-		 * @param WP_REST_Response $response The response object.
-		 * @param WP_Post          $post     Customize Changeset Post object.
-		 * @param WP_REST_Request  $request  Request object.
+		 * @param WP_REST_Response $response       The response object.
+		 * @param WP_Post          $changeset_post Customize Changeset Post object.
+		 * @param WP_REST_Request  $request        Request object.
 		 */
-		return apply_filters( 'rest_prepare_customize_changeset', $data, $changeset_post, $request );
+		return apply_filters( 'rest_prepare_customize_changeset', $response, $changeset_post, $request );
 	}
 
 	/**
@@ -1094,7 +1223,7 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 
 		// Use the date if passed.
 		if ( isset( $date ) ) {
-			if ( DateTime::createFromFormat( 'Y-m-d H:i:s', $date ) ) {
+			if ( $this->is_valid_date( $date ) ) {
 				return $date;
 			} else {
 				return date( 'Y-m-d H:i:s', time() );
@@ -1106,10 +1235,27 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 			return null;
 		}
 
-		if ( DateTime::createFromFormat( 'Y-m-d H:i:s', $date_gmt ) ) {
+		if ( $this->is_valid_date( $date_gmt ) ) {
 			return $date_gmt;
 		} else {
 			return date( 'Y-m-d H:i:s', time() );
+		}
+	}
+
+	/**
+	 * Checks if date is valid.
+	 *
+	 * @param string $date Date string.
+	 * @return bool|DateTime|string Return DateTime | if succeeds.
+	 */
+	protected function is_valid_date( $date ) {
+		if ( method_exists( 'DateTime', 'createFromFormat' ) ) {
+			return DateTime::createFromFormat( 'Y-m-d H:i:s', $date );
+		} else {
+
+			// For 5 >= 5.2.0.
+			$date = new DateTime( $date );
+			return $date->format( 'Y-m-d H:i:s' );
 		}
 	}
 
@@ -1208,7 +1354,7 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	 * @return string|WP_Error Date string or error.
 	 */
 	public function sanitize_datetime( $date ) {
-		if ( DateTime::createFromFormat( 'Y-m-d H:i:s', $date ) ) {
+		if ( $this->is_valid_date( $date ) ) {
 			if ( $date < get_gmt_from_date( date( 'Y-m-d H:i:s', time() ) ) ) {
 				return new WP_Error( 'rest_incorrect_date', __( 'Incorrect date, date cannot be in past.' ), array(
 					'status' => 402,
