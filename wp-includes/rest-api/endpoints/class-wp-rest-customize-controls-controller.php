@@ -110,7 +110,7 @@ class WP_REST_Customize_Controls_Controller extends WP_REST_Controller {
 				),
 				'choices'         => array(
 					'description' => __( 'List of choices for radio/select.' ),
-					'type'        => 'object',
+					'type'        => 'array',
 					'context'     => array( 'embed', 'view', 'edit' ),
 					'readonly'    => true,
 				),
@@ -154,12 +154,6 @@ class WP_REST_Customize_Controls_Controller extends WP_REST_Controller {
 					'description' => __( 'The related section.' ),
 					'type'        => 'string',
 					'context'     => array( 'embed', 'view' ),
-					'readonly'    => true,
-				),
-				'setting'         => array(
-					'description' => __( 'Primary setting of the control.' ),
-					'type'        => 'string',
-					'context'     => array( 'embed', 'view', 'edit' ),
 					'readonly'    => true,
 				),
 				'settings'        => array(
@@ -272,6 +266,7 @@ class WP_REST_Customize_Controls_Controller extends WP_REST_Controller {
 
 		$control_array = (array) $control;
 		$data = array();
+		$primary_setting = '';
 
 		$links = array(
 			'self' => array(
@@ -281,29 +276,54 @@ class WP_REST_Customize_Controls_Controller extends WP_REST_Controller {
 
 		$hide_from_response = array(
 			'capability',
+			'instance_number',
 			'manager',
 			'json',
+			'setting', // Hide this from response since that's returned within 'settings'
 			'active_callback',
 		);
 
-		foreach ( $control_array  as $property => $value ) {
+		if ( ! empty( $control_array['section'] ) ) {
+			$links['up'] = array(
+				'href' => rest_url( trailingslashit( $this->namespace ) . 'sections/' . $control_array['section'] ),
+				'embeddable' => true,
+			);
+		}
+
+		// Get primary setting ID.
+		if ( is_object( $control_array['setting'] ) ) {
+			$primary_setting = $control_array['setting']->id;
+			$data['settings'] = array( $primary_setting );
+			$links['related'] = array( array(
+					'href' => rest_url( trailingslashit( $this->namespace ) . 'settings/' . $primary_setting ),
+					'embeddable' => true,
+				),
+			);
+		}
+
+		foreach ( $control_array as $property => $value ) {
 			if ( in_array( $property, $hide_from_response, true ) ) {
 				continue;
-			} elseif ( 'setting' === $property && is_object( $value ) ) {
-				$data['setting'] = $value->id;
-				$links['setting'] = array(
-					'href' => rest_url( trailingslashit( $this->namespace ) . 'settings/' . $value->id ),
-				);
 			} elseif ( 'settings' === $property ) {
-				if ( ! empty( $value ) ) {
-					$links['settings'] = array();
+				if ( ! empty( $value ) && empty( $primary_setting ) ) {
+					$links['related'] = array();
+					$data['settings'] = array();
 				}
 				foreach ( $value as $name => $setting ) {
 					if ( is_object( $setting ) ) {
-						$data['settings'][] = $setting->id;
-						$links['settings'][ $setting->id ] = array(
+
+						$link_data = array(
 							'href' => rest_url( trailingslashit( $this->namespace ) . 'settings/' . $setting->id ),
+							'embeddable' => true,
 						);
+
+						// Skip since that was added separately before.
+						if ( $primary_setting === $setting->id ) {
+							continue;
+						} else {
+							$data['settings'][] = $setting->id;
+							$links['related'][] = $link_data;
+						}
 					}
 				}
 			} else {

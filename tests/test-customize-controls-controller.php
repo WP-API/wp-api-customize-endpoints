@@ -146,13 +146,13 @@ class WP_Test_REST_Customize_Controls_Controller extends WP_Test_REST_Controller
 		$schema = $changeset_controller->get_item_schema();
 		$properties = $schema['properties'];
 
-		$this->assertSame( 12, count( $properties ) );
+		$this->assertSame( 11, count( $properties ) );
 
 		$this->assertArrayHasKey( 'allow_addition', $properties );
 		$this->assertSame( 'boolean', $properties['allow_addition']['type'] );
 
 		$this->assertArrayHasKey( 'choices', $properties );
-		$this->assertSame( 'object', $properties['choices']['type'] );
+		$this->assertSame( 'array', $properties['choices']['type'] );
 
 		$this->assertArrayHasKey( 'description', $properties );
 		$this->assertSame( 'string', $properties['description']['type'] );
@@ -174,9 +174,6 @@ class WP_Test_REST_Customize_Controls_Controller extends WP_Test_REST_Controller
 
 		$this->assertArrayHasKey( 'section', $properties );
 		$this->assertSame( 'string', $properties['section']['type'] );
-
-		$this->assertArrayHasKey( 'setting', $properties );
-		$this->assertSame( 'string', $properties['setting']['type'] );
 
 		$this->assertArrayHasKey( 'settings', $properties );
 		$this->assertSame( 'array', $properties['settings']['type'] );
@@ -281,7 +278,7 @@ class WP_Test_REST_Customize_Controls_Controller extends WP_Test_REST_Controller
 		$data = $response->get_data();
 
 		$this->assertSame( self::TEST_SETTING_ID, $data['id'] );
-		$this->assertEquals( 'test_setting', $data['setting'] );
+		$this->assertTrue( in_array( 'test_setting', $data['settings'], true ) );
 		$this->assertEquals( 'test_section', $data['section'] );
 	}
 
