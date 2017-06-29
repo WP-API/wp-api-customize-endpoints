@@ -528,17 +528,19 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	/**
 	 * Filter for GET request.
 	 *
-	 * @param array $data Response data.
+	 * @param WP_REST_Response $response Response data.
 	 * @return array Filtered data.
 	 */
-	public function get_changeset_custom_callback( $data ) {
-		$data['settings'] = array(
-			'foo' => array(
-				'value' => 'bar',
+	public function get_changeset_custom_callback( $response ) {
+		$response->set_data( array(
+			'settings' => array(
+				'foo' => array(
+					'value' => 'bar',
+				),
 			),
-		);
+		) );
 
-		return $data;
+		return $response;
 	}
 
 	/**
@@ -1087,7 +1089,13 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$this->assertErrorResponse( 'rest_cannot_edit', $response, 403 );
 
 		$content_after = get_post( $changeset_post_id )->post_content;
-		$this->assertJsonStringEqualsJsonString( $content_before, $content_after );
+
+		// For PHP 5.2.
+		if ( method_exists( $this, 'assertJsonStringEqualsJsonString' ) ) {
+			$this->assertJsonStringEqualsJsonString( $content_before, $content_after );
+		} else {
+			$this->assertEquals( $content_before, $content_after );
+		}
 	}
 
 	/**
@@ -1115,7 +1123,13 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$this->assertErrorResponse( 'invalid_customize_changeset_data', $response, 400 );
 
 		$content_after = get_post( $changeset_post_id )->post_content;
-		$this->assertJsonStringEqualsJsonString( $content_before, $content_after );
+
+		// For PHP 5.2.
+		if ( method_exists( $this, 'assertJsonStringEqualsJsonString' ) ) {
+			$this->assertJsonStringEqualsJsonString( $content_before, $content_after );
+		} else {
+			$this->assertEquals( $content_before, $content_after );
+		}
 	}
 
 	/**
@@ -2019,18 +2033,10 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	public function test_delete_item() {
 		wp_set_current_user( self::$admin_id );
 
-		$uuid = wp_generate_uuid4();
-
-		$changeset_id = self::factory()->post->create( array(
-			'post_name' => $uuid,
-			'post_type' => 'customize_changeset',
-		) );
-
 		$manager = new WP_Customize_Manager();
+		$manager->save_changeset_post();
 
-		$this->assertSame( $changeset_id, $manager->find_changeset_post_id( $uuid ) );
-
-		$request = new WP_REST_Request( 'DELETE', sprintf( '/customize/v1/changesets/%s', $uuid ) );
+		$request = new WP_REST_Request( 'DELETE', sprintf( '/customize/v1/changesets/%s', $manager->changeset_uuid() ) );
 		$request->set_param( 'force', false );
 		$response = $this->server->dispatch( $request );
 
@@ -2040,7 +2046,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$data = $response->get_data();
 		$this->assertSame( 'trash', $data['status'] );
 
-		$this->assertSame( 'trash', get_post_status( $manager->find_changeset_post_id( $uuid ) ) );
+		$this->assertSame( 'trash', get_post_status( $manager->find_changeset_post_id( $manager->changeset_uuid() ) ) );
 	}
 
 	/**
@@ -2049,24 +2055,16 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	public function test_delete_item_without_permission() {
 		wp_set_current_user( self::$subscriber_id );
 
-		$uuid = wp_generate_uuid4();
-
-		$changeset_id = self::factory()->post->create( array(
-			'post_name' => $uuid,
-			'post_type' => 'customize_changeset',
-		) );
-
 		$manager = new WP_Customize_Manager();
+		$manager->save_changeset_post();
 
-		$this->assertSame( $changeset_id, $manager->find_changeset_post_id( $uuid ) );
-
-		$request = new WP_REST_Request( 'DELETE', sprintf( '/customize/v1/changesets/%s', $uuid ) );
+		$request = new WP_REST_Request( 'DELETE', sprintf( '/customize/v1/changesets/%s', $manager->changeset_uuid() ) );
 		$request->set_param( 'force', false );
 		$response = $this->server->dispatch( $request );
 
 		$this->assertErrorResponse( 'rest_cannot_delete', $response, 403 );
 
-		$this->assertNotSame( 'trash', get_post_status( $manager->find_changeset_post_id( $uuid ) ) );
+		$this->assertNotSame( 'trash', get_post_status( $manager->changeset_post_id() ) );
 	}
 
 	/**
@@ -2075,18 +2073,10 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	public function test_force_delete_item() {
 		wp_set_current_user( self::$admin_id );
 
-		$uuid = wp_generate_uuid4();
-
-		$changeset_id = self::factory()->post->create( array(
-			'post_name' => $uuid,
-			'post_type' => 'customize_changeset',
-		) );
-
 		$manager = new WP_Customize_Manager();
+		$manager->save_changeset_post();
 
-		$this->assertSame( $changeset_id, $manager->find_changeset_post_id( $uuid ) );
-
-		$request = new WP_REST_Request( 'DELETE', sprintf( '/customize/v1/changesets/%s', $uuid ) );
+		$request = new WP_REST_Request( 'DELETE', sprintf( '/customize/v1/changesets/%s', $manager->changeset_uuid() ) );
 		$request->set_param( 'force', true );
 		$response = $this->server->dispatch( $request );
 
@@ -2097,7 +2087,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		$this->assertTrue( $data['deleted'] );
 		$this->assertNotEmpty( $data['previous'] );
 
-		$this->assertNull( $manager->find_changeset_post_id( $uuid ) );
+		$this->assertNull( $manager->find_changeset_post_id( $manager->changeset_uuid() ) );
 	}
 
 
@@ -2107,23 +2097,14 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	public function test_force_delete_item_without_permission() {
 		wp_set_current_user( self::$subscriber_id );
 
-		$uuid = wp_generate_uuid4();
-
-		$changeset_id = self::factory()->post->create( array(
-			'post_name' => $uuid,
-			'post_type' => 'customize_changeset',
-		) );
-
 		$manager = new WP_Customize_Manager();
+		$manager->save_changeset_post();
 
-		$this->assertSame( $changeset_id, $manager->find_changeset_post_id( $uuid ) );
-
-		$request = new WP_REST_Request( 'DELETE', sprintf( '/customize/v1/changesets/%s', $uuid ) );
+		$request = new WP_REST_Request( 'DELETE', sprintf( '/customize/v1/changesets/%s', $manager->changeset_uuid() ) );
 		$request->set_param( 'force', true );
 		$response = $this->server->dispatch( $request );
 
 		$this->assertErrorResponse( 'rest_cannot_delete', $response, 403 );
-		$this->assertSame( $changeset_id, $manager->find_changeset_post_id( $uuid ) );
 	}
 
 	/**
@@ -2132,17 +2113,10 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	public function test_delete_item_already_trashed() {
 		wp_set_current_user( self::$admin_id );
 
-		$uuid = wp_generate_uuid4();
-
-		$changeset_id = self::factory()->post->create( array(
-			'post_name'   => $uuid,
-			'post_type'   => 'customize_changeset',
-		) );
-
 		$manager = new WP_Customize_Manager();
-		$this->assertSame( $changeset_id, $manager->find_changeset_post_id( $uuid ) );
+		$manager->save_changeset_post();
 
-		$request = new WP_REST_Request( 'DELETE', sprintf( '/customize/v1/changesets/%s', $uuid ) );
+		$request = new WP_REST_Request( 'DELETE', sprintf( '/customize/v1/changesets/%s', $manager->changeset_uuid() ) );
 		$request->set_param( 'force', false );
 
 		$response = $this->server->dispatch( $request );
@@ -2158,16 +2132,12 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	public function test_delete_item_already_trashed_without_permission() {
 		wp_set_current_user( self::$subscriber_id );
 
-		$uuid = wp_generate_uuid4();
+		$manager = new WP_Customize_Manager();
+		$manager->save_changeset_post();
 
-		$changeset_id = self::factory()->post->create( array(
-			'post_name'   => $uuid,
-			'post_type'   => 'customize_changeset',
-		) );
+		wp_trash_post( $manager->find_changeset_post_id( $manager->changeset_uuid() ) );
 
-		wp_trash_post( $changeset_id );
-
-		$request = new WP_REST_Request( 'DELETE', sprintf( '/customize/v1/changesets/%s', $uuid ) );
+		$request = new WP_REST_Request( 'DELETE', sprintf( '/customize/v1/changesets/%s', $manager->changeset_uuid() ) );
 		$response = $this->server->dispatch( $request );
 
 		$this->assertErrorResponse( 'rest_cannot_delete', $response, 403 );
@@ -2190,7 +2160,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 		wp_set_current_user( self::$subscriber_id );
 		$request = new WP_REST_Request( 'DELETE', sprintf( '/customize/v1/changesets/%s', wp_generate_uuid4() ) );
 		$response = $this->server->dispatch( $request );
-		$this->assertErrorResponse( 'rest_cannot_delete', $response, 403 );
+		$this->assertErrorResponse( 'rest_post_invalid_uuid', $response, 404 );
 	}
 
 	/**
@@ -2199,6 +2169,30 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	 * @covers WP_REST_Customize_Changesets_Controller::prepare_item_for_response()
 	 */
 	public function test_prepare_item() {
-		$this->markTestIncomplete();
+		wp_set_current_user( self::$admin_id );
+		$uuid = wp_generate_uuid4();
+
+		$settings = wp_json_encode( array(
+			self::ALLOWED_TEST_SETTING_ID => array(
+				'value' => 'Foo',
+			),
+		) );
+
+		$customize_changeset = $this->factory()->post->create_and_get( array(
+			'post_type' => 'customize_changeset',
+			'post_name' => $uuid,
+			'post_status' => 'auto-draft',
+			'post_content' => $settings,
+		) );
+
+		$changeset_endpoint = new WP_REST_Customize_Changesets_Controller();
+		$request = new WP_REST_Request();
+
+		$response = $changeset_endpoint->prepare_item_for_response( $customize_changeset, $request );
+		$data = $response->get_data();
+
+		$this->assertSame( $uuid, $data['uuid'] );
+		$this->assertSame( 'auto-draft', $data['status'] );
+		$this->assertTrue( isset( $data['settings'][ self::ALLOWED_TEST_SETTING_ID ] ) );
 	}
 }
