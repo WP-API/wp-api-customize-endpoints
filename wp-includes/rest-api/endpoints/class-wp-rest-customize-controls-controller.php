@@ -279,7 +279,7 @@ class WP_REST_Customize_Controls_Controller extends WP_REST_Controller {
 			'instance_number',
 			'manager',
 			'json',
-			'setting', // Hide this from response since that's returned within 'settings'
+			'setting', // Hide this from response since that's returned within 'settings'.
 			'active_callback',
 		);
 
