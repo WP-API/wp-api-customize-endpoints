@@ -75,31 +75,20 @@ class WP_Test_REST_Customize_Partials_Controller extends WP_Test_REST_Controller
 	 * @param object $wp_customize WP_Customize_Manager.
 	 */
 	public function add_test_customize_settings( $wp_customize ) {
-		$wp_customize->add_panel( 'test_panel', array(
-			'name' => 'Test Panel',
-			'description' => 'Test Panel',
-			'priority' => 100,
-		) );
-
-		// Add section to the panel.
-		$wp_customize->add_section( 'test_section', array(
-			'title' => 'Test Section',
-			'panel' => 'test_panel',
-			'priority' => 100,
-		) );
 
 		// Add setting.
 		$wp_customize->add_setting( self::TEST_SETTING_ID, array(
-			'type' => 'option',
-			'capability' => 'manage_options',
-			'default' => 'Test Setting',
+			'type'              => 'option',
+			'capability'        => 'manage_options',
+			'default'           => 'Test Setting',
 			'sanitize_callback' => 'sanitize_text',
 		) );
 
-		// Add control.
-		$wp_customize->add_control( self::TEST_SETTING_ID, array(
-			'type' => 'textarea',
-			'section' => 'test_section',
+		// Add partial.
+		$wp_customize->selective_refresh->add_partial( self::TEST_SETTING_ID, array(
+			'settings'            => array( self::TEST_SETTING_ID ),
+			'selector'            => '.custom-selector',
+			'container_inclusive' => true,
 		) );
 	}
 
@@ -146,7 +135,16 @@ class WP_Test_REST_Customize_Partials_Controller extends WP_Test_REST_Controller
 		$schema = $changeset_controller->get_item_schema();
 		$properties = $schema['properties'];
 
-		$this->assertSame( 11, count( $properties ) );
+		$this->assertSame( 6, count( $properties ) );
+
+		$this->assertArrayHasKey( 'fallback_refresh', $properties );
+		$this->assertSame( 'boolean', $properties['fallback_refresh']['type'] );
+
+		$this->assertArrayHasKey( 'container_inclusive', $properties );
+		$this->assertSame( 'boolean', $properties['container_inclusive']['type'] );
+
+		$this->assertArrayHasKey( 'selector', $properties );
+		$this->assertSame( 'string', $properties['selector']['type'] );
 
 		$this->assertArrayHasKey( 'id', $properties );
 		$this->assertSame( 'string', $properties['id']['type'] );
@@ -166,7 +164,7 @@ class WP_Test_REST_Customize_Partials_Controller extends WP_Test_REST_Controller
 	public function test_get_item() {
 		wp_set_current_user( self::$admin_id );
 
-		$request = new WP_REST_Request( 'GET', sprintf( '/customize/v1/Partials/%s', self::TEST_SETTING_ID ) );
+		$request = new WP_REST_Request( 'GET', sprintf( '/customize/v1/partials/%s', self::TEST_SETTING_ID ) );
 
 		$response = $this->server->dispatch( $request );
 
@@ -182,7 +180,7 @@ class WP_Test_REST_Customize_Partials_Controller extends WP_Test_REST_Controller
 	public function test_get_item_invalid_id() {
 		wp_set_current_user( self::$admin_id );
 
-		$invalid_control_id = 'qwertyuiop987654321'; // Probably doesn't exist.
+		$invalid_partial_id = 'qwertyuiop987654321'; // Probably doesn't exist.
 		$request = new WP_REST_Request( 'GET', sprintf( '/customize/v1/partials/%s', $invalid_partial_id ) );
 		$response = $this->server->dispatch( $request );
 
@@ -248,14 +246,14 @@ class WP_Test_REST_Customize_Partials_Controller extends WP_Test_REST_Controller
 		$request = new WP_REST_Request();
 		$wp_customize = $partial_endpoint->ensure_customize_manager();
 
-		$test_partial = $wp_customize->get_partial( self::TEST_SETTING_ID );
+		$test_partial = $wp_customize->selective_refresh->get_partial( self::TEST_SETTING_ID );
 
 		$response = $partial_endpoint->prepare_item_for_response( $test_partial, $request );
 		$data = $response->get_data();
 
 		$this->assertSame( self::TEST_SETTING_ID, $data['id'] );
-		$this->assertTrue( in_array( 'test_setting', $data['settings'], true ) );
-		$this->assertEquals( 'test_section', $data['section'] );
+		$this->assertTrue( in_array( self::TEST_SETTING_ID, $data['settings'], true ) );
+		$this->assertEquals( '.custom-selector', $data['selector'] );
 	}
 
 	/**

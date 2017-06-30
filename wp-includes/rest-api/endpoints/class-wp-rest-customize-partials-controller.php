@@ -102,12 +102,6 @@ class WP_REST_Customize_Partials_Controller extends WP_REST_Controller {
 			'title'      => 'partial',
 			'type'       => 'object',
 			'properties' => array(
-				'component'  => array( // @todo not sure if needed.
-					'description' => __( 'Component' ),
-					'type'        => 'object',
-					'context'     => array( 'embed', 'view' ),
-					'readonly'    => true,
-				),
 				'fallback_refresh' => array(
 					'description' => __( 'Whether to refresh the entire preview in case a partial cannot be refreshed.' ),
 					'type'        => 'boolean',
@@ -162,7 +156,7 @@ class WP_REST_Customize_Partials_Controller extends WP_REST_Controller {
 	public function get_item_permissions_check( $request ) {
 		$wp_customize = $this->ensure_customize_manager();
 
-		$partial = $wp_customize->get_partial( $request['partial'] );
+		$partial = $wp_customize->selective_refresh->get_partial( $request['partial'] );
 		if ( ! $partial ) {
 			return new WP_Error( 'rest_partial_invalid_id', __( 'Invalid partial ID.' ), array(
 				'status' => 403,
@@ -184,7 +178,7 @@ class WP_REST_Customize_Partials_Controller extends WP_REST_Controller {
 	public function get_item( $request ) {
 		$wp_customize = $this->ensure_customize_manager();
 
-		$partial = $wp_customize->get_partial( $request['partial'] );
+		$partial = $wp_customize->selective_refresh->get_partial( $request['partial'] );
 
 		return rest_ensure_response( $this->prepare_item_for_response( $partial, $request ) );
 	}
@@ -214,7 +208,7 @@ class WP_REST_Customize_Partials_Controller extends WP_REST_Controller {
 	public function get_items( $request ) {
 		$wp_customize = $this->ensure_customize_manager();
 
-		$all_partials = $wp_customize->partials();
+		$all_partials = $wp_customize->selective_refresh->partials();
 		$partials = array();
 
 		foreach ( $all_partials as $partial_id => $partial ) {
@@ -234,72 +228,59 @@ class WP_REST_Customize_Partials_Controller extends WP_REST_Controller {
 	 * @since 4.?.?
 	 * @access public
 	 *
-	 * @param WP_Customize_Control $partial WP_Customize_Control object.
+	 * @param WP_Customize_Partial $partial WP_Customize_Partial object.
 	 * @param WP_REST_Request      $request Request object.
 	 * @return WP_REST_Response Response object.
 	 */
 	public function prepare_item_for_response( $partial, $request ) {
 
-		$partial_array = (array) $partial;
 		$data = array();
-		$primary_setting = '';
 
 		$links = array(
 			'self' => array(
-				'href' => rest_url( trailingslashit( $this->namespace . '/' . $this->rest_base ) . $partial_array['id'] ),
+				'href' => rest_url( trailingslashit( $this->namespace . '/' . $this->rest_base ) . $partial->id ),
 			),
 		);
 
 		$hide_from_response = array(
 			'capability',
-			'instance_number',
+			'component',
 			'manager',
-			'json',
-			'setting', // Hide this from response since that's returned within 'settings'.
-			'active_callback',
+			'id_data',
+			'primary_setting', // Hide this from response since that's returned within 'settings'.
+			'render_callback',
 		);
 
-		if ( ! empty( $partial_array['section'] ) ) {
-			$links['up'] = array(
-				'href' => rest_url( trailingslashit( $this->namespace ) . 'sections/' . $partial_array['section'] ),
-				'embeddable' => true,
-			);
-		}
-
 		// Get primary setting ID.
-		if ( is_object( $partial_array['setting'] ) ) {
-			$primary_setting = $partial_array['setting']->id;
-			$data['settings'] = array( $primary_setting );
+		if ( ! empty( $partial->primary_setting ) ) {
+			$data['settings'] = array( $partial->primary_setting );
 			$links['related'] = array( array(
-				'href' => rest_url( trailingslashit( $this->namespace ) . 'settings/' . $primary_setting ),
+				'href' => rest_url( trailingslashit( $this->namespace ) . 'settings/' . $partial->primary_setting ),
 				'embeddable' => true,
-			),
+				),
 			);
 		}
 
-		foreach ( $partial_array as $property => $value ) {
+		foreach ( $partial as $property => $value ) {
 			if ( in_array( $property, $hide_from_response, true ) ) {
 				continue;
 			} elseif ( 'settings' === $property ) {
-				if ( ! empty( $value ) && empty( $primary_setting ) ) {
+				if ( ! empty( $value ) && empty( $partial->primary_setting ) ) {
 					$links['related'] = array();
 					$data['settings'] = array();
 				}
-				foreach ( $value as $name => $setting ) {
-					if ( is_object( $setting ) ) {
+				foreach ( $value as $setting ) {
+					$link_data = array(
+						'href' => rest_url( trailingslashit( $this->namespace ) . 'settings/' . $setting ),
+						'embeddable' => true,
+					);
 
-						$link_data = array(
-							'href' => rest_url( trailingslashit( $this->namespace ) . 'settings/' . $setting->id ),
-							'embeddable' => true,
-						);
-
-						// Skip since that was added separately before.
-						if ( $primary_setting === $setting->id ) {
-							continue;
-						} else {
-							$data['settings'][] = $setting->id;
-							$links['related'][] = $link_data;
-						}
+					// Skip since that was added separately before.
+					if ( $partial->primary_setting === $setting ) {
+						continue;
+					} else {
+						$data['settings'][] = $setting;
+						$links['related'][] = $link_data;
 					}
 				}
 			} else {
@@ -320,7 +301,7 @@ class WP_REST_Customize_Partials_Controller extends WP_REST_Controller {
 		 * @since 4.?.?
 		 *
 		 * @param WP_REST_Response     $response The response object.
-		 * @param WP_Customize_Control $partial    WP_Customize_Control object.
+		 * @param WP_Customize_Partial $partial  WP_Customize_Partial object.
 		 * @param WP_REST_Request      $request  Request object.
 		 */
 		return apply_filters( 'rest_prepare_customize_partial', $response, $partial, $request );
