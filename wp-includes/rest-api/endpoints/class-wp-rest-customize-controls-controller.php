@@ -126,12 +126,6 @@ class WP_REST_Customize_Controls_Controller extends WP_REST_Controller {
 					'context'     => array( 'embed', 'view' ),
 					'readonly'    => true,
 				),
-				'instance_number' => array(
-					'description' => __( 'Order in which this instance was created in relation to other instances.' ),
-					'type'        => 'integer',
-					'context'     => array( 'embed', 'view', 'edit' ),
-					'readonly'    => true,
-				),
 				'input_attrs'         => array(
 					'description' => __( 'Input attributes for a control.' ),
 					'type'        => 'object',
