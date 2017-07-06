@@ -17,6 +17,15 @@
 class WP_REST_Customize_Sections_Controller extends WP_REST_Controller {
 
 	/**
+	 * Array of sections.
+	 *
+	 * @since 4.?.?
+	 * @access protected
+	 * @var array
+	 */
+	protected $sections = array();
+
+	/**
 	 * Constructor.
 	 *
 	 * @since 4.7.0
@@ -49,7 +58,16 @@ class WP_REST_Customize_Sections_Controller extends WP_REST_Controller {
 			do_action( 'customize_register', $wp_customize );
 		}
 
-		$wp_customize->prepare_controls();
+		if ( empty( $this->sections ) ) {
+			$wp_customize->prepare_controls();
+
+			// Get all the sections like this since some sections won't be directly accessible after prepare_controls().
+			$this->sections = array_merge( $wp_customize->sections() );
+			foreach ( $wp_customize->panels() as $panel ) {
+				$this->sections = array_merge( $this->sections, $panel->sections );
+			}
+		}
+
 		return $wp_customize;
 	}
 
@@ -180,9 +198,9 @@ class WP_REST_Customize_Sections_Controller extends WP_REST_Controller {
 	 */
 	public function get_item_permissions_check( $request ) {
 
-		$wp_customize = $this->ensure_customize_manager();
+		$this->ensure_customize_manager();
 
-		$section = $wp_customize->get_section( $request['section'] );
+		$section = $this->get_section( $request['section'] );
 		if ( ! $section ) {
 			return new WP_Error( 'rest_section_invalid_id', __( 'Invalid section ID.' ), array(
 				'status' => 404,
@@ -202,9 +220,9 @@ class WP_REST_Customize_Sections_Controller extends WP_REST_Controller {
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
 	public function get_item( $request ) {
-		$wp_customize = $this->ensure_customize_manager();
+		$this->ensure_customize_manager();
 
-		$section = $wp_customize->get_section( $request['section'] );
+		$section = $this->get_section( $request['section'] );
 
 		return rest_ensure_response( $this->prepare_item_for_response( $section, $request ) );
 	}
@@ -232,12 +250,10 @@ class WP_REST_Customize_Sections_Controller extends WP_REST_Controller {
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
 	public function get_items( $request ) {
-		$wp_customize = $this->ensure_customize_manager();
-
-		$all_sections = $wp_customize->sections();
+		$this->ensure_customize_manager();
 		$sections = array();
 
-		foreach ( $all_sections as $section_id => $section ) {
+		foreach ( $this->sections as $section_id => $section ) {
 			if ( ! $section->check_capabilities() ) {
 				continue;
 			}
@@ -341,5 +357,17 @@ class WP_REST_Customize_Sections_Controller extends WP_REST_Controller {
 				'default' => 'view',
 			) ),
 		);
+	}
+
+	/**
+	 * Get section.
+	 *
+	 * @param string $id Section ID.
+	 * @return mixed|null WP_Customize_Section object or null.
+	 */
+	protected function get_section( $id ) {
+		if ( isset( $this->sections[ $id ] ) ) {
+			return $this->sections[ $id ];
+		}
 	}
 }
