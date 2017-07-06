@@ -63,10 +63,10 @@ class WP_REST_Customize_Sections_Controller extends WP_REST_Controller {
 			$wp_customize->prepare_controls();
 
 			// Get all the sections like this since some sections won't be directly accessible after prepare_controls().
+			$this->sections = array_merge( $wp_customize->sections() );
 			foreach ( $wp_customize->panels() as $panel ) {
 				$this->sections = array_merge( $this->sections, $panel->sections );
 			}
-			$this->sections = array_merge( $wp_customize->sections() );
 		}
 
 		return $wp_customize;
