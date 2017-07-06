@@ -268,7 +268,7 @@ class WP_REST_Customize_Panels_Controller extends WP_REST_Controller {
 		foreach ( $data as $param => $value ) {
 			if ( in_array( $param, $hide_from_response, true ) ) {
 				unset( $data[ $param ] );
-			} elseif ( '' === $value || array() === $value ) {
+			} elseif ( '' === $value ) {
 				$data[ $param ] = null;
 			}
 		}

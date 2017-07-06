@@ -305,7 +305,7 @@ class WP_REST_Customize_Controls_Controller extends WP_REST_Controller {
 		foreach ( $control_array as $property => $value ) {
 			if ( in_array( $property, $hide_from_response, true ) ) {
 				continue;
-			} elseif ( '' === $value || array() === $value ) {
+			} elseif ( '' === $value ) {
 				$data[ $property ] = null;
 			} elseif ( 'settings' === $property ) {
 				if ( ! empty( $value ) && empty( $primary_setting ) ) {
