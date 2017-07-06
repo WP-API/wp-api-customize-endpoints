@@ -276,6 +276,14 @@ class WP_REST_Customize_Sections_Controller extends WP_REST_Controller {
 			'capability',
 		);
 
+		foreach ( $data as $param => $value ) {
+			if ( in_array( $param, $hide_from_response, true ) ) {
+				unset( $data[ $param ] );
+			} elseif ( '' === $value || array() === $value ) {
+				$data[ $param ] = null;
+			}
+		}
+
 		foreach ( $hide_from_response as $param ) {
 			unset( $data[ $param ] );
 		}
@@ -298,8 +306,6 @@ class WP_REST_Customize_Sections_Controller extends WP_REST_Controller {
 				'href' => rest_url( trailingslashit( $this->namespace ) . 'panels/' . $data['panel'] ),
 				'embeddable' => true,
 			);
-		} else {
-			$data['panel'] = null;
 		}
 
 		$context = ! empty( $request['context'] ) ? $request['context'] : 'view';

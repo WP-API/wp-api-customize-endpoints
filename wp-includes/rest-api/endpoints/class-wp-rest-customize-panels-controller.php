@@ -257,16 +257,25 @@ class WP_REST_Customize_Panels_Controller extends WP_REST_Controller {
 			),
 		);
 
-		unset( $data['instance_count'] );
-		unset( $data['instance_number'] );
-		unset( $data['manager'] );
-		unset( $data['active_callback'] );
-		unset( $data['capability'] );
+		$hide_from_response = array(
+			'instance_count',
+			'instance_number',
+			'manager',
+			'active_callback',
+			'capability',
+		);
 
-		$data['sections'] = array();
+		foreach ( $data as $param => $value ) {
+			if ( in_array( $param, $hide_from_response, true ) ) {
+				unset( $data[ $param ] );
+			} elseif ( '' === $value || array() === $value ) {
+				$data[ $param ] = null;
+			}
+		}
 
 		if ( ! empty( $panel->sections ) ) {
 			$links['children'] = array();
+			$data['sections'] = array();
 		}
 		foreach ( $panel->sections as $section_id => $section ) {
 			$data['sections'][] = $section_id;
