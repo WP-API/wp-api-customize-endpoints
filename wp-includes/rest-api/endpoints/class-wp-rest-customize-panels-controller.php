@@ -265,9 +265,17 @@ class WP_REST_Customize_Panels_Controller extends WP_REST_Controller {
 			'capability',
 		);
 
+		$null_if_empty = array(
+			'theme_supports',
+		);
+
 		foreach ( $data as $param => $value ) {
 			if ( in_array( $param, $hide_from_response, true ) ) {
 				unset( $data[ $param ] );
+			} elseif ( in_array( $param, $null_if_empty, true ) ) {
+				if ( empty( $value ) ) {
+					$data[ $param ] = null;
+				}
 			}
 		}
 

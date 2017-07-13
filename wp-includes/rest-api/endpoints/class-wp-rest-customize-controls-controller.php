@@ -277,6 +277,10 @@ class WP_REST_Customize_Controls_Controller extends WP_REST_Controller {
 			'active_callback',
 		);
 
+		$null_if_empty = array(
+			'section',
+		);
+
 		// Remove unused params of upload control.
 		if ( $control instanceof WP_Customize_Upload_Control ) {
 			$hide_from_response[] = 'removed';
@@ -305,6 +309,12 @@ class WP_REST_Customize_Controls_Controller extends WP_REST_Controller {
 		foreach ( $control_array as $property => $value ) {
 			if ( in_array( $property, $hide_from_response, true ) ) {
 				continue;
+			} elseif ( in_array( $property, $null_if_empty, true ) ) {
+				if ( empty( $value ) ) {
+					$data[ $property ] = null;
+				} else {
+					$data[ $property ] = $value;
+				}
 			} elseif ( 'settings' === $property ) {
 				if ( ! empty( $value ) && empty( $primary_setting ) ) {
 					$links['related'] = array();
