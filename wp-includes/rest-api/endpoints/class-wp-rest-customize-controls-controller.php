@@ -126,12 +126,6 @@ class WP_REST_Customize_Controls_Controller extends WP_REST_Controller {
 					'context'     => array( 'embed', 'view' ),
 					'readonly'    => true,
 				),
-				'instance_number' => array(
-					'description' => __( 'Order in which this instance was created in relation to other instances.' ),
-					'type'        => 'integer',
-					'context'     => array( 'embed', 'view', 'edit' ),
-					'readonly'    => true,
-				),
 				'input_attrs'         => array(
 					'description' => __( 'Input attributes for a control.' ),
 					'type'        => 'object',
@@ -283,6 +277,17 @@ class WP_REST_Customize_Controls_Controller extends WP_REST_Controller {
 			'active_callback',
 		);
 
+		$null_if_empty = array(
+			'section',
+		);
+
+		// Remove unused params of upload control.
+		if ( $control instanceof WP_Customize_Upload_Control ) {
+			$hide_from_response[] = 'removed';
+			$hide_from_response[] = 'context';
+			$hide_from_response[] = 'extensions';
+		}
+
 		if ( ! empty( $control_array['section'] ) ) {
 			$links['up'] = array(
 				'href' => rest_url( trailingslashit( $this->namespace ) . 'sections/' . $control_array['section'] ),
@@ -304,6 +309,12 @@ class WP_REST_Customize_Controls_Controller extends WP_REST_Controller {
 		foreach ( $control_array as $property => $value ) {
 			if ( in_array( $property, $hide_from_response, true ) ) {
 				continue;
+			} elseif ( in_array( $property, $null_if_empty, true ) ) {
+				if ( empty( $value ) ) {
+					$data[ $property ] = null;
+				} else {
+					$data[ $property ] = $value;
+				}
 			} elseif ( 'settings' === $property ) {
 				if ( ! empty( $value ) && empty( $primary_setting ) ) {
 					$links['related'] = array();

@@ -146,7 +146,7 @@ class WP_Test_REST_Customize_Controls_Controller extends WP_Test_REST_Controller
 		$schema = $changeset_controller->get_item_schema();
 		$properties = $schema['properties'];
 
-		$this->assertSame( 11, count( $properties ) );
+		$this->assertSame( 10, count( $properties ) );
 
 		$this->assertArrayHasKey( 'allow_addition', $properties );
 		$this->assertSame( 'boolean', $properties['allow_addition']['type'] );
@@ -159,9 +159,6 @@ class WP_Test_REST_Customize_Controls_Controller extends WP_Test_REST_Controller
 
 		$this->assertArrayHasKey( 'id', $properties );
 		$this->assertSame( 'string', $properties['id']['type'] );
-
-		$this->assertArrayHasKey( 'instance_number', $properties );
-		$this->assertSame( 'integer', $properties['instance_number']['type'] );
 
 		$this->assertArrayHasKey( 'input_attrs', $properties );
 		$this->assertSame( 'object', $properties['input_attrs']['type'] );

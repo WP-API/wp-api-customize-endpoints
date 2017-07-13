@@ -293,9 +293,19 @@ class WP_REST_Customize_Settings_Controller extends WP_REST_Controller {
 
 		$schema = $this->get_item_schema();
 
+		$null_if_empty = array(
+			'theme_supports',
+		);
+
 		foreach ( $schema['properties'] as $name => $params ) {
 			if ( 'value' === $name ) {
 				$data[ $name ] = $setting->value();
+			} elseif ( in_array( $name, $null_if_empty, true ) ) {
+				if ( empty( $setting->{$name} ) ) {
+					$data[ $name ] = null;
+				} else {
+					$data[ $name ] = $setting->{$name};
+				}
 			} else {
 				$data[ $name ] = $setting->{$name};
 			}

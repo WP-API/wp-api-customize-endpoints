@@ -65,6 +65,14 @@ class WP_Test_REST_Customize_Sections_Controller extends WP_Test_REST_Controller
 	}
 
 	/**
+	 * Clean up global scope.
+	 */
+	function clean_up_global_scope() {
+		$GLOBALS['wp_customize'] = null; // WPCS: override global ok.
+		parent::clean_up_global_scope();
+	}
+
+	/**
 	 * Test section ID.
 	 */
 	const TEST_SECTION_ID = 'test_section';
