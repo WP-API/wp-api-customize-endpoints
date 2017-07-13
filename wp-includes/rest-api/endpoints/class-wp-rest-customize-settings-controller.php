@@ -229,7 +229,9 @@ class WP_REST_Customize_Settings_Controller extends WP_REST_Controller {
 			if ( ! $setting->check_capabilities() ) {
 				continue;
 			}
-			$settings[] = $this->prepare_item_for_response( $setting, $request );
+
+			$data = $this->prepare_item_for_response( $setting, $request );
+			$settings[] = $this->prepare_response_for_collection( $data );
 		}
 
 		return rest_ensure_response( $settings );
@@ -315,6 +317,15 @@ class WP_REST_Customize_Settings_Controller extends WP_REST_Controller {
 		$data = $this->add_additional_fields_to_object( $data, $request );
 		$data = $this->filter_response_by_context( $data, $context );
 
+		$links = array(
+			'self' => array(
+				'href' => rest_url( trailingslashit( $this->namespace . '/' . $this->rest_base ) . $data['id'] ),
+			),
+		);
+
+		$response = rest_ensure_response( $data );
+		$response->add_links( $links );
+
 		/**
 		 * Filters the setting data for a response.
 		 *
@@ -324,7 +335,7 @@ class WP_REST_Customize_Settings_Controller extends WP_REST_Controller {
 		 * @param WP_Customize_Setting $setting  WP_Customize_Setting object.
 		 * @param WP_REST_Request      $request  Request object.
 		 */
-		return apply_filters( 'rest_prepare_customize_setting', $data, $setting, $request );
+		return apply_filters( 'rest_prepare_customize_setting', $response, $setting, $request );
 	}
 
 	/**

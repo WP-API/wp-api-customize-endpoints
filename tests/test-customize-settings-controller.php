@@ -294,7 +294,8 @@ class WP_Test_REST_Customize_Settings_Controller extends WP_Test_REST_Controller
 		$request = new WP_REST_Request();
 		$request->set_param( 'setting', self::TEST_SETTING_ID );
 
-		$data = $endpoint->prepare_item_for_response( $setting, $request );
+		$response = $endpoint->prepare_item_for_response( $setting, $request );
+		$data = $response->get_data();
 
 		$this->assertEquals( self::TEST_SETTING_ID, $data['id'] );
 		$this->assertEquals( 'refresh', $data['transport'] );
