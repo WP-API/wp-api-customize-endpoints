@@ -39,7 +39,7 @@ class WP_Test_REST_Customize_Controls_Controller extends WP_Test_REST_Controller
 	/**
 	 * Set up before class.
 	 *
-	 * @param object $factory Factory.
+	 * @param WP_UnitTest_Factory $factory Factory.
 	 */
 	public static function wpSetUpBeforeClass( $factory ) {
 
@@ -72,7 +72,7 @@ class WP_Test_REST_Customize_Controls_Controller extends WP_Test_REST_Controller
 	/**
 	 * Add custom control for testing.
 	 *
-	 * @param object $wp_customize WP_Customize_Manager.
+	 * @param WP_Customize_Manager $wp_customize WP_Customize_Manager.
 	 */
 	public function add_test_customize_settings( $wp_customize ) {
 		$wp_customize->add_panel( 'test_panel', array(

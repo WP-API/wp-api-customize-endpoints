@@ -226,6 +226,11 @@ class WP_REST_Customize_Settings_Controller extends WP_REST_Controller {
 		$settings = array();
 
 		foreach ( $all_settings as $setting_id => $setting ) {
+			/**
+			 * Setting.
+			 *
+			 * @var WP_Customize_Setting $setting
+			 */
 			if ( ! $setting->check_capabilities() ) {
 				continue;
 			}

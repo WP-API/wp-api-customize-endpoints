@@ -265,8 +265,8 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	/**
 	 * Check if current user can read the changeset.
 	 *
-	 * @param object $post_type_obj Post type object.
-	 * @param object $changeset_post Changeset post object.
+	 * @param WP_Post_Type $post_type_obj  Post type object.
+	 * @param WP_Post      $changeset_post Changeset post object.
 	 * @return bool If has read permissions.
 	 */
 	protected function check_read_permission( $post_type_obj, $changeset_post ) {
@@ -492,8 +492,8 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	/**
 	 * Check if user has permissions to edit all the values.
 	 *
-	 * @param object $changeset_post Changeset post object.
-	 * @param array  $data Array of data to change.
+	 * @param WP_Post $changeset_post Changeset post object.
+	 * @param array   $data Array of data to change.
 	 * @return bool If has permissions.
 	 */
 	protected function check_update_permission( $changeset_post, $data ) {
@@ -716,8 +716,6 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
 	 */
 	public function delete_item( $request ) {
-		global $wpdb;
-
 		$manager = $this->ensure_customize_manager( $request['uuid'] );
 
 		if ( ! $manager->changeset_post_id() ) {
@@ -1263,7 +1261,7 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	 * Get customize changeset post object.
 	 *
 	 * @param string $uuid Changeset UUID.
-	 * @return array|null|WP_Post Post object.
+	 * @return WP_Post|null Post object.
 	 */
 	protected function get_customize_changeset_post( $uuid ) {
 		$settings_previewed = true;
@@ -1276,7 +1274,7 @@ class WP_REST_Customize_Changesets_Controller extends WP_REST_Controller {
 	/**
 	 * Check if customize changeset is already published.
 	 *
-	 * @param object $changeset WP_Post object.
+	 * @param WP_Post $changeset WP_Post object.
 	 * @return bool If the customize changeset is already published.
 	 */
 	protected function is_published_changeset( $changeset ) {

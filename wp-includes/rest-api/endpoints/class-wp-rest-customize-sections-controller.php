@@ -371,11 +371,13 @@ class WP_REST_Customize_Sections_Controller extends WP_REST_Controller {
 	 * Get section.
 	 *
 	 * @param string $id Section ID.
-	 * @return mixed|null WP_Customize_Section object or null.
+	 * @return WP_Customize_Section|null Section object or null.
 	 */
 	protected function get_section( $id ) {
 		if ( isset( $this->sections[ $id ] ) ) {
 			return $this->sections[ $id ];
+		} else {
+			return null;
 		}
 	}
 }
