@@ -156,6 +156,7 @@ class WP_REST_Customize_Partials_Controller extends WP_REST_Controller {
 	public function get_item_permissions_check( $request ) {
 		$wp_customize = $this->ensure_customize_manager();
 
+		$wp_customize->selective_refresh->add_dynamic_partials( array( $request['partial'] ) );
 		$partial = $wp_customize->selective_refresh->get_partial( $request['partial'] );
 		if ( ! $partial ) {
 			return new WP_Error( 'rest_partial_invalid_id', __( 'Invalid partial ID.' ), array(
@@ -178,6 +179,7 @@ class WP_REST_Customize_Partials_Controller extends WP_REST_Controller {
 	public function get_item( $request ) {
 		$wp_customize = $this->ensure_customize_manager();
 
+		$wp_customize->selective_refresh->add_dynamic_partials( array( $request['partial'] ) );
 		$partial = $wp_customize->selective_refresh->get_partial( $request['partial'] );
 
 		return rest_ensure_response( $this->prepare_item_for_response( $partial, $request ) );
