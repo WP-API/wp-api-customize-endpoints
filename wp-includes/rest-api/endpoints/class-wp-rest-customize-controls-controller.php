@@ -236,6 +236,11 @@ class WP_REST_Customize_Controls_Controller extends WP_REST_Controller {
 		$controls = array();
 
 		foreach ( $all_controls as $control_id => $control ) {
+			/**
+			 * Control.
+			 *
+			 * @var WP_Customize_Control $control
+			 */
 			if ( ! $control->check_capabilities() ) {
 				continue;
 			}

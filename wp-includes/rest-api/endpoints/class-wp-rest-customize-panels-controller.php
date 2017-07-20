@@ -229,6 +229,11 @@ class WP_REST_Customize_Panels_Controller extends WP_REST_Controller {
 		$panels = array();
 
 		foreach ( $all_panels as $panel_id => $panel ) {
+			/**
+			 * Panel.
+			 *
+			 * @var WP_Customize_Panel $panel
+			 */
 			if ( ! $panel->check_capabilities() ) {
 				continue;
 			}

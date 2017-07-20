@@ -52,7 +52,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	/**
 	 * Set up before class.
 	 *
-	 * @param object $factory Factory.
+	 * @param WP_UnitTest_Factory $factory Factory.
 	 */
 	public static function wpSetUpBeforeClass( $factory ) {
 
@@ -101,7 +101,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	/**
 	 * Add custom settings for testing.
 	 *
-	 * @param object $wp_customize WP Customize Manager.
+	 * @param WP_Customize_Manager $wp_customize WP Customize Manager.
 	 */
 	public function add_test_customize_settings( $wp_customize ) {
 		$wp_customize->add_setting( self::ALLOWED_TEST_SETTING_ID );
@@ -439,7 +439,7 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	 * Filter query args.
 	 *
 	 * @param array $args Query args.
-	 * @return array mixed Args.
+	 * @return array Args.
 	 */
 	public function filter_rest_customize_changeset_query( $args ) {
 		$args['post_status'] = array( 'draft' );
@@ -900,8 +900,9 @@ class WP_Test_REST_Customize_Changesets_Controller extends WP_Test_REST_Controll
 	/**
 	 * Filters updating changeset.
 	 *
-	 * @param object $changeset_post Post object.
-	 * @return object mixed Object of data.
+	 * @see WP_REST_Customize_Changesets_Controller::prepare_item_for_database()
+	 * @param stdClass $changeset_post Object containing prepared post data.
+	 * @return stdClass Post.
 	 */
 	public function update_changeset_custom_callback( $changeset_post ) {
 		$changeset_post->post_title = 'Title after';
