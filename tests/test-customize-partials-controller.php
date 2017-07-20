@@ -175,6 +175,40 @@ class WP_Test_REST_Customize_Partials_Controller extends WP_Test_REST_Controller
 	}
 
 	/**
+	 * Filter partial args.
+	 *
+	 * @param bool   $args If add dynamic partial.
+	 * @param string $partial_id Partial ID.
+	 * @return bool If add dynamic partial.
+	 */
+	public function filter_customize_dynamic_partial_args( $args, $partial_id ) {
+		if ( self::TEST_SETTING_ID === $partial_id ) {
+			return true;
+		}
+		return $args;
+	}
+
+	/**
+	 * Test getting dynamic partial with 'customize_dynamic_partial_args'.
+	 */
+	public function test_get_item_with_dynamic_partial_filter() {
+		add_filter( 'customize_dynamic_partial_args', array( $this, 'filter_customize_dynamic_partial_args' ), 10, 2 );
+
+		wp_set_current_user( self::$admin_id );
+
+		$request = new WP_REST_Request( 'GET', sprintf( '/customize/v1/partials/%s', self::TEST_SETTING_ID ) );
+
+		$response = $this->server->dispatch( $request );
+
+		$this->assertEquals( 200, $response->get_status() );
+		$data = $response->get_data();
+
+		$this->assertSame( self::TEST_SETTING_ID, $data['id'] );
+
+		remove_filter( 'customize_dynamic_partial_args', array( $this, 'filter_customize_dynamic_partial_args' ), 10 );
+	}
+
+	/**
 	 * Test getting a non-existing control.
 	 */
 	public function test_get_item_invalid_id() {
