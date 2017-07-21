@@ -105,7 +105,7 @@ class WP_REST_Customize_Controls_Controller extends WP_REST_Controller {
 				'allow_addition'  => array(
 					'description' => __( 'If to show UI for adding new content' ),
 					'type'        => 'boolean',
-					'context'     => array( 'embed', 'view' ),
+					'context'     => array( 'embed', 'view', 'edit' ),
 					'readonly'    => true,
 				),
 				'choices'         => array(
@@ -123,7 +123,7 @@ class WP_REST_Customize_Controls_Controller extends WP_REST_Controller {
 				'id'              => array(
 					'description' => __( 'Identifier for the control.' ),
 					'type'        => 'string',
-					'context'     => array( 'embed', 'view' ),
+					'context'     => array( 'embed', 'view', 'edit' ),
 					'readonly'    => true,
 				),
 				'input_attrs'         => array(
@@ -141,13 +141,13 @@ class WP_REST_Customize_Controls_Controller extends WP_REST_Controller {
 				'priority'        => array(
 					'description' => __( 'The priority of the control.' ),
 					'type'        => 'integer',
-					'context'     => array( 'embed', 'view' ),
+					'context'     => array( 'embed', 'view', 'edit' ),
 					'readonly'    => true,
 				),
 				'section'        => array(
 					'description' => __( 'The related section.' ),
 					'type'        => 'string',
-					'context'     => array( 'embed', 'view' ),
+					'context'     => array( 'embed', 'view', 'edit' ),
 					'readonly'    => true,
 				),
 				'settings'        => array(
@@ -159,7 +159,7 @@ class WP_REST_Customize_Controls_Controller extends WP_REST_Controller {
 				'type'            => array(
 					'description' => __( 'Type of the control.' ),
 					'type'        => 'string',
-					'context'     => array( 'view' ),
+					'context'     => array( 'embed', 'view', 'edit' ),
 					'readonly'    => true,
 				),
 			),
@@ -183,7 +183,7 @@ class WP_REST_Customize_Controls_Controller extends WP_REST_Controller {
 		$control = $wp_customize->get_control( $request['control'] );
 		if ( ! $control ) {
 			return new WP_Error( 'rest_control_invalid_id', __( 'Invalid control ID.' ), array(
-				'status' => 403,
+				'status' => 404,
 			) );
 		}
 
@@ -217,7 +217,7 @@ class WP_REST_Customize_Controls_Controller extends WP_REST_Controller {
 	 * @return true|WP_Error True if the request has read access, WP_Error object otherwise.
 	 */
 	public function get_items_permissions_check( $request ) {
-		return current_user_can( 'edit_theme_options' );
+		return current_user_can( 'customize' );
 	}
 
 	/**
