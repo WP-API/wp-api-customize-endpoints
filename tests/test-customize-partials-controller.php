@@ -65,9 +65,14 @@ class WP_Test_REST_Customize_Partials_Controller extends WP_Test_REST_Controller
 	}
 
 	/**
-	 * Test control ID.
+	 * Test setting ID.
 	 */
 	const TEST_SETTING_ID = 'test_setting';
+
+	/**
+	 * Test partial ID.
+	 */
+	const TEST_DYNAMIC_PARTIAL_ID = 'test_partial';
 
 	/**
 	 * Add custom control for testing.
@@ -179,46 +184,54 @@ class WP_Test_REST_Customize_Partials_Controller extends WP_Test_REST_Controller
 	 *
 	 * @param bool   $args If add dynamic partial.
 	 * @param string $partial_id Partial ID.
-	 * @return bool If add dynamic partial.
+	 * @return bool|array False or dynamic partial args.
 	 */
 	public function filter_customize_dynamic_partial_args( $args, $partial_id ) {
-		if ( self::TEST_SETTING_ID === $partial_id ) {
-			return true;
+		if ( self::TEST_DYNAMIC_PARTIAL_ID === $partial_id ) {
+			return array(
+				'settings' => array( self::TEST_SETTING_ID ),
+			);
 		}
-		return $args;
+		return false;
 	}
 
 	/**
 	 * Test getting dynamic partial with 'customize_dynamic_partial_args'.
 	 */
 	public function test_get_item_with_dynamic_partial_filter() {
-		add_filter( 'customize_dynamic_partial_args', array( $this, 'filter_customize_dynamic_partial_args' ), 10, 2 );
 
 		wp_set_current_user( self::$admin_id );
 
-		$request = new WP_REST_Request( 'GET', sprintf( '/customize/v1/partials/%s', self::TEST_SETTING_ID ) );
+		$request = new WP_REST_Request( 'GET', sprintf( '/customize/v1/partials/%s', self::TEST_DYNAMIC_PARTIAL_ID ) );
+
+		$response = $this->server->dispatch( $request );
+		$this->assertErrorResponse( 'rest_not_found', $response, 404 );
+
+		add_filter( 'customize_dynamic_partial_args', array( $this, 'filter_customize_dynamic_partial_args' ), 10, 2 );
+
+		$request = new WP_REST_Request( 'GET', sprintf( '/customize/v1/partials/%s', self::TEST_DYNAMIC_PARTIAL_ID ) );
 
 		$response = $this->server->dispatch( $request );
 
 		$this->assertEquals( 200, $response->get_status() );
 		$data = $response->get_data();
 
-		$this->assertSame( self::TEST_SETTING_ID, $data['id'] );
+		$this->assertSame( self::TEST_DYNAMIC_PARTIAL_ID, $data['id'] );
 
 		remove_filter( 'customize_dynamic_partial_args', array( $this, 'filter_customize_dynamic_partial_args' ), 10 );
 	}
 
 	/**
-	 * Test getting a non-existing control.
+	 * Test getting a non-existing partial.
 	 */
-	public function test_get_item_invalid_id() {
+	public function test_get_item_missing() {
 		wp_set_current_user( self::$admin_id );
 
 		$invalid_partial_id = 'qwertyuiop987654321'; // Probably doesn't exist.
 		$request = new WP_REST_Request( 'GET', sprintf( '/customize/v1/partials/%s', $invalid_partial_id ) );
 		$response = $this->server->dispatch( $request );
 
-		$this->assertErrorResponse( 'rest_partial_invalid_id', $response, 403 );
+		$this->assertErrorResponse( 'rest_not_found', $response, 404 );
 	}
 
 	/**

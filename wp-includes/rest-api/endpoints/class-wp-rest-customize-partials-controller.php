@@ -102,22 +102,22 @@ class WP_REST_Customize_Partials_Controller extends WP_REST_Controller {
 			'title'      => 'partial',
 			'type'       => 'object',
 			'properties' => array(
+				'id'              => array(
+					'description' => __( 'Identifier for the partial.' ),
+					'type'        => 'string',
+					'context'     => array( 'embed', 'view', 'edit' ),
+					'readonly'    => true,
+				),
 				'fallback_refresh' => array(
 					'description' => __( 'Whether to refresh the entire preview in case a partial cannot be refreshed.' ),
 					'type'        => 'boolean',
 					'context'     => array( 'embed', 'view', 'edit' ),
 					'readonly'    => true,
 				),
-				'id'              => array(
-					'description' => __( 'Identifier for the partial.' ),
-					'type'        => 'string',
-					'context'     => array( 'embed', 'view' ),
-					'readonly'    => true,
-				),
 				'container_inclusive' => array(
 					'description' => __( 'Whether the container element is included in the partial' ),
 					'type'        => 'boolean',
-					'context'     => array( 'embed', 'view' ),
+					'context'     => array( 'embed', 'view', 'edit' ),
 					'readonly'    => true,
 				),
 				'selector'        => array(
@@ -135,7 +135,7 @@ class WP_REST_Customize_Partials_Controller extends WP_REST_Controller {
 				'type'            => array(
 					'description' => __( 'Type of the partial.' ),
 					'type'        => 'string',
-					'context'     => array( 'view' ),
+					'context'     => array( 'embed', 'view', 'edit' ),
 					'readonly'    => true,
 				),
 			),
@@ -159,8 +159,8 @@ class WP_REST_Customize_Partials_Controller extends WP_REST_Controller {
 		$wp_customize->selective_refresh->add_dynamic_partials( array( $request['partial'] ) );
 		$partial = $wp_customize->selective_refresh->get_partial( $request['partial'] );
 		if ( ! $partial ) {
-			return new WP_Error( 'rest_partial_invalid_id', __( 'Invalid partial ID.' ), array(
-				'status' => 403,
+			return new WP_Error( 'rest_not_found', __( 'Partial not found.' ), array(
+				'status' => 404,
 			) );
 		}
 
@@ -195,7 +195,7 @@ class WP_REST_Customize_Partials_Controller extends WP_REST_Controller {
 	 * @return true|WP_Error True if the request has read access, WP_Error object otherwise.
 	 */
 	public function get_items_permissions_check( $request ) {
-		return current_user_can( 'edit_theme_options' );
+		return current_user_can( 'customize' );
 	}
 
 	/**
@@ -253,13 +253,17 @@ class WP_REST_Customize_Partials_Controller extends WP_REST_Controller {
 			'render_callback',
 		);
 
-		// Get primary setting ID.
-		if ( ! empty( $partial->primary_setting ) ) {
-			$data['settings'] = array( $partial->primary_setting );
-			$links['related'] = array( array(
-				'href' => rest_url( trailingslashit( $this->namespace ) . 'settings/' . $partial->primary_setting ),
+		$settings = array_unique( array_filter( array_merge( array( $partial->primary_setting ), $partial->settings ) ) );
+
+		if ( ! empty( $settings ) ) {
+			$links['related'] = array();
+			$data['settings'] = array();
+		}
+		foreach ( $settings as $setting ) {
+			$data['settings'][] = $setting;
+			$links['related'][] = array(
+				'href' => rest_url( trailingslashit( $this->namespace ) . 'settings/' . $setting ),
 				'embeddable' => true,
-				),
 			);
 		}
 
@@ -267,24 +271,7 @@ class WP_REST_Customize_Partials_Controller extends WP_REST_Controller {
 			if ( in_array( $property, $hide_from_response, true ) ) {
 				continue;
 			} elseif ( 'settings' === $property ) {
-				if ( ! empty( $value ) && empty( $partial->primary_setting ) ) {
-					$links['related'] = array();
-					$data['settings'] = array();
-				}
-				foreach ( $value as $setting ) {
-					$link_data = array(
-						'href' => rest_url( trailingslashit( $this->namespace ) . 'settings/' . $setting ),
-						'embeddable' => true,
-					);
-
-					// Skip since that was added separately before.
-					if ( $partial->primary_setting === $setting ) {
-						continue;
-					} else {
-						$data['settings'][] = $setting;
-						$links['related'][] = $link_data;
-					}
-				}
+				continue;
 			} else {
 				$data[ $property ] = $value;
 			}
