@@ -29,6 +29,10 @@
  */
 function wp_api_customize_endpoints_rest_init() {
 
+	if ( ! class_exists( 'WP_REST_Customize_Controller' ) ) {
+		require_once dirname( __FILE__ ) . '/wp-includes/rest-api/endpoints/class-wp-rest-customize-controller.php';
+	}
+
 	if ( ! class_exists( 'WP_REST_Customize_Changesets_Controller' ) ) {
 		require_once dirname( __FILE__ ) . '/wp-includes/rest-api/endpoints/class-wp-rest-customize-changesets-controller.php';
 	}

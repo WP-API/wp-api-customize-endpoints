@@ -14,7 +14,7 @@
  *
  * @see WP_REST_Controller
  */
-class WP_REST_Customize_Panels_Controller extends WP_REST_Controller {
+class WP_REST_Customize_Panels_Controller extends WP_REST_Customize_Controller {
 
 	/**
 	 * Constructor.
