@@ -105,13 +105,13 @@ class WP_REST_Customize_Settings_Controller extends WP_REST_Customize_Controller
 				'id'              => array(
 					'description' => __( 'Identifier for the setting.' ),
 					'type'        => 'string',
-					'context'     => array( 'embed', 'view' ),
+					'context'     => array( 'embed', 'view', 'edit' ),
 					'readonly'    => true,
 				),
 				'theme_supports'  => array(
 					'description' => __( 'Theme features required to support the setting.' ),
 					'type'        => 'array',
-					'context'     => array( 'view' ),
+					'context'     => array( 'embed', 'view', 'edit' ),
 					'readonly'    => true,
 				),
 				'transport'       => array(
@@ -123,13 +123,13 @@ class WP_REST_Customize_Settings_Controller extends WP_REST_Customize_Controller
 				'type'            => array(
 					'description' => __( 'Type of the setting.' ),
 					'type'        => 'string',
-					'context'     => array( 'view' ),
+					'context'     => array( 'embed', 'view', 'edit' ),
 					'readonly'    => true,
 				),
 				'value'           => array(
 					'description' => __( 'Setting value.' ),
 					'type'        => 'object',
-					'context'     => array( 'view', 'edit' ),
+					'context'     => array( 'embed', 'view', 'edit' ),
 				),
 			),
 		);
@@ -188,7 +188,7 @@ class WP_REST_Customize_Settings_Controller extends WP_REST_Customize_Controller
 	 * @return true|WP_Error True if the request has read access, WP_Error object otherwise.
 	 */
 	public function get_items_permissions_check( $request ) {
-		return current_user_can( 'edit_theme_options' );
+		return current_user_can( 'customize' );
 	}
 
 	/**

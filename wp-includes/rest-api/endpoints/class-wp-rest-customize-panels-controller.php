@@ -110,7 +110,7 @@ class WP_REST_Customize_Panels_Controller extends WP_REST_Customize_Controller {
 				'auto_expand_sole_section' => array(
 					'description' => __( 'If to auto-expand a sole section in an expanded panel.' ),
 					'type'        => 'boolean',
-					'context'     => array( 'embed', 'view' ),
+					'context'     => array( 'embed', 'view', 'edit' ),
 					'readonly'    => true,
 				),
 				'description'     => array(
@@ -122,7 +122,7 @@ class WP_REST_Customize_Panels_Controller extends WP_REST_Customize_Controller {
 				'id'              => array(
 					'description' => __( 'Identifier for the panel.' ),
 					'type'        => 'string',
-					'context'     => array( 'embed', 'view' ),
+					'context'     => array( 'embed', 'view', 'edit' ),
 					'readonly'    => true,
 				),
 				'title'            => array(
@@ -134,7 +134,7 @@ class WP_REST_Customize_Panels_Controller extends WP_REST_Customize_Controller {
 				'priority'        => array(
 					'description' => __( 'The priority of the panel.' ),
 					'type'        => 'integer',
-					'context'     => array( 'embed', 'view' ),
+					'context'     => array( 'embed', 'view', 'edit' ),
 					'readonly'    => true,
 				),
 				'sections'        => array(
@@ -146,13 +146,13 @@ class WP_REST_Customize_Panels_Controller extends WP_REST_Customize_Controller {
 				'theme_supports'  => array(
 					'description' => __( 'Theme features required to support the panel.' ),
 					'type'        => 'array',
-					'context'     => array( 'view' ),
+					'context'     => array( 'embed', 'view', 'edit' ),
 					'readonly'    => true,
 				),
 				'type'            => array(
 					'description' => __( 'Type of the panel.' ),
 					'type'        => 'string',
-					'context'     => array( 'view' ),
+					'context'     => array( 'embed', 'view', 'edit' ),
 					'readonly'    => true,
 				),
 			),
@@ -210,7 +210,7 @@ class WP_REST_Customize_Panels_Controller extends WP_REST_Customize_Controller {
 	 * @return true|WP_Error True if the request has read access, WP_Error object otherwise.
 	 */
 	public function get_items_permissions_check( $request ) {
-		return current_user_can( 'edit_theme_options' );
+		return current_user_can( 'customize' );
 	}
 
 	/**

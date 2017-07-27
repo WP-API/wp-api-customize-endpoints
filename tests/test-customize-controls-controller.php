@@ -200,14 +200,14 @@ class WP_Test_REST_Customize_Controls_Controller extends WP_Test_REST_Controller
 	/**
 	 * Test getting a non-existing control.
 	 */
-	public function test_get_item_invalid_id() {
+	public function test_get_item_missing() {
 		wp_set_current_user( self::$admin_id );
 
 		$invalid_control_id = 'qwertyuiop987654321'; // Probably doesn't exist.
 		$request = new WP_REST_Request( 'GET', sprintf( '/customize/v1/controls/%s', $invalid_control_id ) );
 		$response = $this->server->dispatch( $request );
 
-		$this->assertErrorResponse( 'rest_control_invalid_id', $response, 403 );
+		$this->assertErrorResponse( 'rest_control_invalid_id', $response, 404 );
 	}
 
 	/**

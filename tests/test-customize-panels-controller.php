@@ -183,7 +183,7 @@ class WP_Test_REST_Customize_Panels_Controller extends WP_Test_REST_Controller_T
 	/**
 	 * Test getting a non-existing panel.
 	 */
-	public function test_get_item_invalid_id() {
+	public function test_get_item_missing() {
 		wp_set_current_user( self::$admin_id );
 
 		$invalid_panel_id = 'qwertyuiop987654321'; // Probably doesn't exist.
