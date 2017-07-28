@@ -190,7 +190,7 @@ class WP_Test_REST_Customize_Panels_Controller extends WP_Test_REST_Controller_T
 		$request = new WP_REST_Request( 'GET', sprintf( '/customize/v1/panels/%s', $invalid_panel_id ) );
 		$response = $this->server->dispatch( $request );
 
-		$this->assertErrorResponse( 'rest_panel_invalid_id', $response, 403 );
+		$this->assertErrorResponse( 'rest_panel_not_found', $response, 404 );
 	}
 
 	/**
@@ -202,7 +202,7 @@ class WP_Test_REST_Customize_Panels_Controller extends WP_Test_REST_Controller_T
 		$request = new WP_REST_Request( 'GET', sprintf( '/customize/v1/panels/%s', self::TEST_PANEL_ID ) );
 		$response = $this->server->dispatch( $request );
 
-		$this->assertErrorResponse( 'rest_panel_invalid_id', $response, 403 );
+		$this->assertErrorResponse( 'rest_panel_not_found', $response, 404 );
 	}
 
 	/**

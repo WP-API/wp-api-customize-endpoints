@@ -238,8 +238,8 @@ class WP_REST_Customize_Settings_Controller extends WP_REST_Customize_Controller
 		$wp_customize->add_dynamic_settings( array( $request['setting'] ) );
 		$setting = $wp_customize->get_setting( $request['setting'] );
 		if ( ! $setting ) {
-			return new WP_Error( 'rest_setting_invalid_id', __( 'Invalid setting ID.' ), array(
-				'status' => 403,
+			return new WP_Error( 'rest_setting_not_found', __( 'Setting not found.' ), array(
+				'status' => 404,
 			) );
 		}
 

@@ -175,8 +175,8 @@ class WP_REST_Customize_Panels_Controller extends WP_REST_Customize_Controller {
 
 		$panel = $wp_customize->get_panel( $request['panel'] );
 		if ( ! $panel ) {
-			return new WP_Error( 'rest_panel_invalid_id', __( 'Invalid panel ID' ), array(
-				'status' => 403,
+			return new WP_Error( 'rest_panel_not_found', __( 'Panel not found.' ), array(
+				'status' => 404,
 			) );
 		}
 

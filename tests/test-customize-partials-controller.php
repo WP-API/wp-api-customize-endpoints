@@ -105,7 +105,7 @@ class WP_Test_REST_Customize_Partials_Controller extends WP_Test_REST_Controller
 	public function test_register_routes() {
 		$routes = $this->server->get_routes();
 		$this->assertArrayHasKey( '/customize/v1/partials', $routes );
-		$this->assertArrayHasKey( '/customize/v1/partials/(?P<partial>[\w-]+)', $routes );
+		$this->assertArrayHasKey( '/customize/v1/partials/(?P<partial>[\w-|\[\]]+)', $routes );
 	}
 
 	/**

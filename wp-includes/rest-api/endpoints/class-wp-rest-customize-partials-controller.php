@@ -47,7 +47,7 @@ class WP_REST_Customize_Partials_Controller extends WP_REST_Customize_Controller
 			'schema' => array( $this, 'get_public_item_schema' ),
 		) );
 
-		register_rest_route( $this->namespace, '/' . $this->rest_base . '/(?P<partial>[\w-]+)', array(
+		register_rest_route( $this->namespace, '/' . $this->rest_base . '/(?P<partial>[\w-|\[\]]+)', array(
 			'args' => array(
 				'partial' => array(
 					'description' => __( 'An alphanumeric identifier for the partial.' ),
