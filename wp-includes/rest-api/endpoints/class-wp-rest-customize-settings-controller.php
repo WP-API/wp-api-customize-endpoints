@@ -14,7 +14,7 @@
  *
  * @see WP_REST_Controller
  */
-class WP_REST_Customize_Settings_Controller extends WP_REST_Controller {
+class WP_REST_Customize_Settings_Controller extends WP_REST_Customize_Controller {
 
 	/**
 	 * Constructor.
@@ -25,25 +25,6 @@ class WP_REST_Customize_Settings_Controller extends WP_REST_Controller {
 	public function __construct() {
 		$this->namespace = 'customize/v1';
 		$this->rest_base = 'settings';
-	}
-
-	/**
-	 * Ensure customize manager.
-	 *
-	 * @return WP_Customize_Manager Manager.
-	 * @global WP_Customize_Manager $wp_customize
-	 */
-	public function ensure_customize_manager() {
-		global $wp_customize;
-		if ( empty( $wp_customize ) ) {
-			$wp_customize = new WP_Customize_Manager(); // WPCS: global override ok.
-		}
-		if ( ! did_action( 'customize_register' ) ) {
-
-			/** This action is documented in wp-includes/class-wp-customize-manager.php */
-			do_action( 'customize_register', $wp_customize );
-		}
-		return $wp_customize;
 	}
 
 	/**
@@ -124,13 +105,13 @@ class WP_REST_Customize_Settings_Controller extends WP_REST_Controller {
 				'id'              => array(
 					'description' => __( 'Identifier for the setting.' ),
 					'type'        => 'string',
-					'context'     => array( 'embed', 'view' ),
+					'context'     => array( 'embed', 'view', 'edit' ),
 					'readonly'    => true,
 				),
 				'theme_supports'  => array(
 					'description' => __( 'Theme features required to support the setting.' ),
 					'type'        => 'array',
-					'context'     => array( 'view' ),
+					'context'     => array( 'embed', 'view', 'edit' ),
 					'readonly'    => true,
 				),
 				'transport'       => array(
@@ -142,13 +123,13 @@ class WP_REST_Customize_Settings_Controller extends WP_REST_Controller {
 				'type'            => array(
 					'description' => __( 'Type of the setting.' ),
 					'type'        => 'string',
-					'context'     => array( 'view' ),
+					'context'     => array( 'embed', 'view', 'edit' ),
 					'readonly'    => true,
 				),
 				'value'           => array(
 					'description' => __( 'Setting value.' ),
 					'type'        => 'object',
-					'context'     => array( 'view', 'edit' ),
+					'context'     => array( 'embed', 'view', 'edit' ),
 				),
 			),
 		);
@@ -207,7 +188,7 @@ class WP_REST_Customize_Settings_Controller extends WP_REST_Controller {
 	 * @return true|WP_Error True if the request has read access, WP_Error object otherwise.
 	 */
 	public function get_items_permissions_check( $request ) {
-		return current_user_can( 'edit_theme_options' );
+		return current_user_can( 'customize' );
 	}
 
 	/**
@@ -257,8 +238,8 @@ class WP_REST_Customize_Settings_Controller extends WP_REST_Controller {
 		$wp_customize->add_dynamic_settings( array( $request['setting'] ) );
 		$setting = $wp_customize->get_setting( $request['setting'] );
 		if ( ! $setting ) {
-			return new WP_Error( 'rest_setting_invalid_id', __( 'Invalid setting ID.' ), array(
-				'status' => 403,
+			return new WP_Error( 'rest_setting_not_found', __( 'Setting not found.' ), array(
+				'status' => 404,
 			) );
 		}
 

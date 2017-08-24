@@ -14,7 +14,7 @@
  *
  * @see WP_REST_Controller
  */
-class WP_REST_Customize_Sections_Controller extends WP_REST_Controller {
+class WP_REST_Customize_Sections_Controller extends WP_REST_Customize_Controller {
 
 	/**
 	 * Array of sections.
@@ -143,31 +143,31 @@ class WP_REST_Customize_Sections_Controller extends WP_REST_Controller {
 				'description_hidden' => array(
 					'description' => __( 'If to show the description of the section or not.' ),
 					'type'        => 'boolean',
-					'context'     => array( 'embed', 'view' ),
+					'context'     => array( 'embed', 'view', 'edit' ),
 					'readonly'    => true,
 				),
 				'id'              => array(
 					'description' => __( 'Identifier for the section.' ),
 					'type'        => 'string',
-					'context'     => array( 'embed', 'view' ),
+					'context'     => array( 'embed', 'view', 'edit' ),
 					'readonly'    => true,
 				),
 				'panel'        => array(
 					'description' => __( 'The related panel.' ),
 					'type'        => 'object',
-					'context'     => array( 'embed', 'view' ),
+					'context'     => array( 'embed', 'view', 'edit' ),
 					'readonly'    => true,
 				),
 				'priority'        => array(
 					'description' => __( 'The priority of the section.' ),
 					'type'        => 'integer',
-					'context'     => array( 'embed', 'view' ),
+					'context'     => array( 'embed', 'view', 'edit' ),
 					'readonly'    => true,
 				),
 				'theme_supports'  => array(
 					'description' => __( 'Theme features required to support the section.' ),
 					'type'        => 'array',
-					'context'     => array( 'view' ),
+					'context'     => array( 'embed', 'view', 'edit' ),
 					'readonly'    => true,
 				),
 				'title'            => array(
@@ -179,7 +179,7 @@ class WP_REST_Customize_Sections_Controller extends WP_REST_Controller {
 				'type'            => array(
 					'description' => __( 'Type of the section.' ),
 					'type'        => 'string',
-					'context'     => array( 'view' ),
+					'context'     => array( 'embed', 'view', 'edit' ),
 					'readonly'    => true,
 				),
 			),
@@ -238,7 +238,7 @@ class WP_REST_Customize_Sections_Controller extends WP_REST_Controller {
 	 * @return true|WP_Error True if the request has read access, WP_Error object otherwise.
 	 */
 	public function get_items_permissions_check( $request ) {
-		return current_user_can( 'edit_theme_options' );
+		return current_user_can( 'customize' );
 	}
 
 	/**
